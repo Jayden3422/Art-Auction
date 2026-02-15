@@ -1,6 +1,9 @@
 import axios from "axios";
 import Cookie from 'js-cookie';
-const baseURL = process.env.NODE_ENV === 'development' ? '/api1' : 'http://localhost:3000'
+const devBaseURL = '/api1';
+const apiPort = process.env.VUE_APP_APP_PORT || '3000';
+const prodBaseURL = `${window.location.protocol}//${window.location.hostname}:${apiPort}`;
+const baseURL = process.env.NODE_ENV === 'development' ? devBaseURL : prodBaseURL;
 const instance = axios.create({
   baseURL,
   timeout: 10000,

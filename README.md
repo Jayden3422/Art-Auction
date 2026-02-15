@@ -1,4 +1,33 @@
 # Art-Auction-Platform - Design and Implementation
+
+## Table of Contents
+
+- [Project Overview](#project-overview)
+  - [Background](#background)
+  - [Key Points](#key-points)
+  - [Technologies Used](#technologies-used)
+- [Installation and Setup](#installation-and-setup)
+  - [Frontend](#frontend)
+  - [Backend](#backend)
+  - [Database](#database)
+- [Key Feature](#key-feature)
+  - [Internationalization](#internationalization)
+  - [RESTful](#restful)
+  - [Artwork auction module](#artwork-auction-module)
+  - [Data statistics module](#data-statistics-module)
+- [Testing](#testing)
+  - [Rate Limiting Test](#rate-limiting-test-rate-limittestjs)
+  - [Other Tests](#other-tests)
+- [System architecture design](#system-architecture-design)
+- [Functional module outline design](#functional-module-outline-design)
+  - [Registration and login module](#registration-and-login-module)
+  - [Artwork publishing module](#artwork-publishing-module)
+  - [Personal information management module](#personal-information-management-module)
+  - [User management module](#user-management-module)
+  - [Order management module](#order-management-module)
+  - [Notification management module](#notification-management-module)
+  - [Product management module](#product-management-module)
+
 ## Project Overview
 
 This is my undergraduate thesis project: an online art auction platform built to provide a convenient, secure, and efficient space for art trading. It allows users to browse, bid on, and purchase artworks digitally.
@@ -143,6 +172,43 @@ The following is the report in exported pdf format:
 
 ![report-pdf](README.assets/report-pdf.png)
 
+
+## Testing
+
+Backend uses **Jest** + **supertest**. Run with:
+
+```bash
+cd backend
+npm test
+```
+
+All test files are located in `backend/__tests__/`.
+
+### Rate Limiting Test (`rate-limit.test.js`)
+
+Tests the `express-rate-limit` middleware. In test mode (`NODE_ENV=test`), the threshold is reduced to 2 requests per window. The test sends 3 consecutive requests and verifies the first 2 return `200` while the 3rd returns `429`.
+
+```js
+test('returns 429 after exceeding configured request threshold', async () => {
+    const first = await request(app).get('/');
+    const second = await request(app).get('/');
+    const third = await request(app).get('/');
+
+    expect(first.statusCode).toBe(200);
+    expect(second.statusCode).toBe(200);
+    expect(third.statusCode).toBe(429);
+    expect(third.body.message).toBe('Too many requests, please try again later.');
+});
+```
+
+### Other Tests
+
+- **judge.test.js** — Input validation (phone, email, date, QQ, WeChat)
+- **base64.test.js** — Base64 encode/decode round-trip
+- **md5.test.js** — MD5 hash determinism and salt differentiation
+- **token.test.js** — JWT creation, verification, expiry
+- **promise.test.js** — `isFine()` utility for Promise result checking
+- **middleware.test.js** — CORS headers, OPTIONS handling, token auth
 
 ## System architecture design
 

@@ -2,15 +2,21 @@
 import { removeFiles } from "./dofs.js";
 // 导入包
 import OSS from 'ali-oss';
+import {
+    OSS_REGION,
+    OSS_ACCESS_KEY_ID,
+    OSS_ACCESS_KEY_SECRET,
+    OSS_BUCKET
+} from "../config/env.js";
 // 创建client
 let client = new OSS({
     // yourRegion填写Bucket所在地域。以华东1（杭州）为例，Region填写为oss-cn-hangzhou。
-    region: 'oss-cn-beijing',
+    region: OSS_REGION,
     // 阿里云账号AccessKey拥有所有API的访问权限。
-    accessKeyId: '',
-    accessKeySecret: '',
+    accessKeyId: OSS_ACCESS_KEY_ID,
+    accessKeySecret: OSS_ACCESS_KEY_SECRET,
     // 填写Bucket名称。
-    bucket: ''
+    bucket: OSS_BUCKET
 });
 // 上传
 function putOSS(object, localfile) {

@@ -4,6 +4,9 @@ import {createToken, verifyToken} from "./tools/token.js";// 引入token操作�
 import {salt, permission, final} from "./tools/public.js"
 // 引入express框架
 import express from "express";
+import rateLimit from "express-rate-limit";
+import { WebSocketServer } from 'ws';
+import { APP_PORT, WS_PORT } from "./config/env.js";
 var app = express();
 
 // 新增：引入 cookie-parser
@@ -45,6 +48,7 @@ import { fileURLToPath } from "url"; // 用于获取 __dirname
 // 在 ES 模块中定义 __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const isDevEnv = process.env.NODE_ENV === 'development';
 
 // 配置 i18n
 i18n.configure({
@@ -53,8 +57,8 @@ i18n.configure({
   defaultLocale: 'en', // 默认语言
   cookie: 'lang', // Cookie 键名，用于持久化语言
   queryParameter: 'lang', // 查询参数，如 ?lang=zh
-  autoReload: true, // 开发时自动重载语言文件
-  syncFiles: true, // 自动同步缺失的键
+  autoReload: isDevEnv, // 仅开发时自动重载语言文件，避免测试句柄泄漏
+  syncFiles: isDevEnv, // 仅开发时自动同步缺失的键
   register: global, // 全局注册，便于在非 req 环境中使用
   // 新增：忽略 Accept-Language 头，强制使用默认或查询/Cookie
   updateFiles: false, // 避免自动写文件，如果不需要
@@ -87,6 +91,19 @@ app.use(function (req, res, next) {
     res.setHeader("X-Powered-By", ' 3.2.1')
     next();
 });
+
+const requestLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: process.env.NODE_ENV === 'test' ? 2 : 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => req.method.toLowerCase() === 'options',
+    message: {
+        message: 'Too many requests, please try again later.'
+    }
+});
+
+app.use(requestLimiter);
 
 // 以下为接口相关函数
 // 白名单，允许所有用户访问
@@ -139,7 +156,9 @@ app.use((req, res, next) => {
 })
 
 // 拍卖时间结束后的操作
-final();
+if (process.env.NODE_ENV !== 'test') {
+    final();
+}
 
 app.get('/', function (req, res) {
     res.send(req.__('hello') + ' Express');
@@ -152,44 +171,46 @@ app.use('/admin', admin);
 
 
 // websocket
-import WebSocket, { WebSocketServer } from 'ws';
+if (process.env.NODE_ENV !== 'test') {
+    const wss = new WebSocketServer({ port: WS_PORT }) // 服务端口3006
+    var player = new Array()
+    console.log(__('createWs') + ', ' + __('servicePort') + ': ' + WS_PORT)
 
-const wss = new WebSocketServer({ port: 3001 }) // 服务端口3006
-var player = new Array()
-console.log(__('createWs') + ', ' + __('servicePort') + ': 3001')
-
-// 创建连接
-wss.on("connection", ws => {
-    let id = Math.floor(Math.random() * (99999999 - 10000000 + 1)) + 10000000;
-    player.push(id)
-    console.log(__('newClient'))
-    // 接收到 client 数据时
-    ws.on("message", data => {
-        //前台传ping就返回ok
-        if (data == 'ping') {
-            ws.send('ok')
-            return
-        }
-        let myData = JSON.parse(data.toString());
-        myData.TIME = new Date();
-        //群发
-        wss.clients.forEach(s => {
-            if (s.readyState == 1 && s.socketIdxos != id) {
-                s.send(JSON.stringify(myData));
+    // 创建连接
+    wss.on("connection", ws => {
+        let id = Math.floor(Math.random() * (99999999 - 10000000 + 1)) + 10000000;
+        player.push(id)
+        console.log(__('newClient'))
+        // 接收到 client 数据时
+        ws.on("message", data => {
+            //前台传ping就返回ok
+            if (data == 'ping') {
+                ws.send('ok')
+                return
             }
+            let myData = JSON.parse(data.toString());
+            myData.TIME = new Date();
+            //群发
+            wss.clients.forEach(s => {
+                if (s.readyState == 1 && s.socketIdxos != id) {
+                    s.send(JSON.stringify(myData));
+                }
+            })
         })
+        ws.on("close", () => {
+            console.log("websocket server: " + __('clientClosed'))
+            player = new Array()
+        })
+        ws.onerror = function () {
+            console.log("websocket server: " + __('wrong'))
+        }
     })
-    ws.on("close", () => {
-        console.log("websocket server: " + __('clientClosed'))
-        player = new Array()
-    })
-    ws.onerror = function () {
-        console.log("websocket server: " + __('wrong'))
-    }
-})
 
 
-// 监听3000接口
-app.listen(3000, function () {
-    console.log('app is runing at port 3000');
-})
+    // 监听3000接口
+    app.listen(APP_PORT, function () {
+        console.log('app is runing at port ' + APP_PORT);
+    })
+}
+
+export default app;

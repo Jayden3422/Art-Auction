@@ -1,6 +1,6 @@
 export default {
     // 文件上传链接
-    uploadFile: "http://localhost:3000/admin/uploadFile",
+    uploadFile: `${window.location.protocol}//${window.location.hostname}:${process.env.VUE_APP_APP_PORT || '3000'}/admin/uploadFile`,
     // 用户数据
     userForm: {},
     // 权限等级

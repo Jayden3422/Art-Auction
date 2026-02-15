@@ -1,10 +1,11 @@
 import {createToken, verifyToken} from "./token.js";// 引入token操作函数
 // 引入数据库相关操作
 import { insertDb, deleteData, deleteDatas, findPro, findSort, findLimitSort, updateDb, updateDbs } from "./Mongo.js";
+import { JWT_SALT } from "../config/env.js";
 // Promise处理
 import { isFine, allPro } from "./promise.js";
 // 密码盐
-const salt = "XFoZff1OM3";
+const salt = JWT_SALT;
 
 // 权限列表
 async function permission(userForm, res, pid) {

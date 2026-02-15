@@ -1,11 +1,12 @@
 // 引入数据库
 import MongoDB from "mongodb";
+import { MONGO_URL, MONGO_DB_NAME } from "../config/env.js";
 // 创建Client
 var MongoClient = MongoDB.MongoClient;
 // 远程数据库地址
-const url = "mongodb://localhost:27017/";
+const url = MONGO_URL;
 // 数据库名称
-const DBname = "liujinqi";
+const DBname = MONGO_DB_NAME;
 // 返回Promise的数据库操作
 // 插入数据
 function insertDb(col, form) {
