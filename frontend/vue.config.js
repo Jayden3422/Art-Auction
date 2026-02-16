@@ -1,19 +1,53 @@
 const { defineConfig } = require('@vue/cli-service')
+const path = require('path')
 const apiProxyPrefix = '/api1';
 const apiPort = process.env.VUE_APP_APP_PORT || '3000';
 const apiProxyTarget = `http://localhost:${apiPort}`;
 
-module.exports = defineConfig({
+const isProduction = process.env.NODE_ENV === 'production'
+
+const config = {
   transpileDependencies: true,
   devServer: {
     proxy: {
       [apiProxyPrefix]: {
         target: apiProxyTarget,
         changeOrigin: true,
-        secure: false, 
+        secure: false,
         ws: true,
         pathRewrite: { [`^${apiProxyPrefix}`]: '' }
       }
     }
   }
-})
+}
+
+// Prerender public landing pages at build time for SEO
+if (isProduction) {
+  try {
+    const PrerendererWebpackPlugin = require('@prerenderer/webpack-plugin')
+    config.configureWebpack = {
+      plugins: [
+        new PrerendererWebpackPlugin({
+          routes: ['/login', '/signin'],
+          renderer: '@prerenderer/renderer-puppeteer',
+          rendererOptions: {
+            renderAfterTime: 5000,
+            headless: true
+          },
+          postProcess(renderedRoute) {
+            // Ensure prerendered pages have correct meta
+            renderedRoute.html = renderedRoute.html.replace(
+              /<title>[^<]*<\/title>/,
+              `<title>${renderedRoute.route === '/login' ? 'Login' : 'Sign Up'} - Jayden Art Auction</title>`
+            )
+            return renderedRoute
+          }
+        })
+      ]
+    }
+  } catch (e) {
+    console.warn('Prerenderer not available, skipping prerender:', e.message)
+  }
+}
+
+module.exports = defineConfig(config)

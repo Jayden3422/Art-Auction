@@ -5,7 +5,7 @@ import App from './App.vue'
 import router from './router'
 import store from './store'
 import 'ant-design-vue/dist/antd.css';
-import { isString } from '@vue/shared';
+import { updateRouteMeta } from './utils/seo';
 import Cookie from "js-cookie";
 import { jwtDecode } from 'jwt-decode'
 const api = require('./utils/api')
@@ -35,10 +35,8 @@ router.beforeEach((to, from, next) => {
     } else {
         loadingBar.style.display = 'block'
     }
-    // 实时标题
-    if (isString(to.meta.title)) {
-        document.title = "Jayden Art Auction-" + to.meta.title;
-    }
+    // SEO: dynamically update page meta tags, canonical URL, and hreflang
+    updateRouteMeta(to.meta, to.fullPath, to.path);
     if (to.path == '/login') {
         isToken(next, '/login');
     } else if (to.meta.isAuth) {

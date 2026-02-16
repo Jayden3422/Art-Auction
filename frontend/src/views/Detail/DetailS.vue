@@ -10,7 +10,7 @@
             />
             <a-alert v-if="suc" :message="t('message.submitSuc')" type="success" show-icon id="msg"/>
             <div class="top">
-                <img :src="info.IMG_URL" class="left" />
+                <img :src="info.IMG_URL" :alt="info.NAME" class="left" />
                 <div class="right">
                     <div class="title">
                         {{ info.NAME }}
@@ -138,6 +138,7 @@ import store from '@/store';
 import { useWebSocket } from '../../ws/hooks';
 import { AuditOutlined } from '@ant-design/icons-vue';
 import { useI18n } from 'vue-i18n';
+import { setMetaTag, setJsonLd, buildAuctionJsonLd } from '../../utils/seo';
 export default {
     components: {
         Timer,
@@ -162,6 +163,17 @@ export default {
             }
         }
         await getInfo();
+        // SEO: dynamically set item page meta and structured data
+        if (List.info.NAME) {
+            const seoTitle = `${List.info.NAME} - Jayden Art Auction`;
+            document.title = seoTitle;
+            setMetaTag('name', 'description', `${List.info.NAME} - ${List.info.INTRODUCTION || ''}. Artist: ${List.info.ARTIST || 'Unknown'}, Starting price: ￥${List.info.UPSET_PRICE || 0}`);
+            setMetaTag('property', 'og:title', seoTitle);
+            setMetaTag('property', 'og:description', List.info.INTRODUCTION || '');
+            setMetaTag('property', 'og:image', List.info.IMG_URL || '');
+            setMetaTag('property', 'og:type', 'product');
+            setJsonLd(buildAuctionJsonLd(List.info));
+        }
         var time = reactive({
             START_TIME: fullDate(List.info.START_TIME),
             END_TIME: fullDate(List.info.END_TIME),

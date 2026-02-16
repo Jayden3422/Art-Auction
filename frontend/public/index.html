@@ -1,15 +1,42 @@
 <!DOCTYPE html>
-<html lang="">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <meta name="description" content="Jayden Art Auction - Professional online art auction platform featuring paintings, calligraphy, ceramics, sculptures, metalwork, and rare stones.">
+    <meta name="keywords" content="art auction,online bidding,painting auction,ceramic auction,sculpture auction,metalwork,rare stones,art trading platform">
+    <meta name="author" content="Jayden Art Auction">
+    <meta name="robots" content="index, follow">
+
+    <!-- Google Search Console verification (set VUE_APP_GSC_VERIFICATION in .env) -->
+    <% if (process.env.VUE_APP_GSC_VERIFICATION) { %>
+    <meta name="google-site-verification" content="<%= process.env.VUE_APP_GSC_VERIFICATION %>">
+    <% } %>
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Jayden Art Auction">
+    <meta property="og:title" content="Jayden Art Auction - Online Art Bidding">
+    <meta property="og:description" content="Professional online art auction platform featuring paintings, ceramics, sculptures and more.">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Jayden Art Auction">
+    <meta name="twitter:description" content="Professional online art auction platform featuring paintings, ceramics, sculptures and more.">
+
+    <!-- hreflang defaults (overridden per-page by JS) -->
+    <link rel="alternate" hreflang="en" href="">
+    <link rel="alternate" hreflang="zh" href="">
+    <link rel="alternate" hreflang="x-default" href="">
+
     <link rel="icon" href="<%= BASE_URL %>favicon.ico">
-    <title>Jayden Art Auction</title>
+    <title>Jayden Art Auction - Online Art Bidding</title>
   </head>
   <body>
     <noscript>
-      <strong>We're sorry but <%= htmlWebpackPlugin.options.title %> doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
+      <strong>Jayden Art Auction requires JavaScript to run properly. Please enable it to continue.</strong>
     </noscript>
     <div id="app"></div>
     <!-- built files will be auto injected -->

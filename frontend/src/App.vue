@@ -6,8 +6,14 @@
 
 <script setup>
 import * as echarts from 'echarts'
-import { provide } from 'vue'
+import { provide, onMounted } from 'vue'
+import { setJsonLd, buildWebsiteJsonLd, buildOrganizationJsonLd } from './utils/seo'
+
 provide('echarts', echarts)
+
+onMounted(() => {
+    setJsonLd([buildWebsiteJsonLd(), buildOrganizationJsonLd()])
+})
 </script>
 
 <style>

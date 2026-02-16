@@ -4,6 +4,7 @@ import {createToken, verifyToken} from "./tools/token.js";// 引入token操作�
 import {salt, permission, final} from "./tools/public.js"
 // 引入express框架
 import express from "express";
+import compression from "compression";
 import rateLimit from "express-rate-limit";
 import { WebSocketServer } from 'ws';
 import { APP_PORT, WS_PORT } from "./config/env.js";
@@ -66,6 +67,16 @@ i18n.configure({
 
 // 使用 cookie-parser 中间件
 app.use(cookieParser());
+// Gzip compression for all responses
+app.use(compression());
+// Security headers (modern CSP, no deprecated X-XSS-Protection)
+app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss: https:; frame-ancestors 'self'");
+    next();
+});
 // 设置 i18n 中间件（放在跨域设置前或后均可，但要在路由前）
 app.use(i18n.init);
 // 验证使用语言
@@ -110,6 +121,8 @@ app.use(requestLimiter);
 const whiteList = [
     '/',
     '/all/isToken',
+    // SEO: public endpoints for crawlers
+    '/all/sitemap.xml',
     // 买家
     '/buyr',
     '/buyr/login',
@@ -122,6 +135,8 @@ const whiteList = [
     '/admin',
     '/admin/login',
 ];
+// SEO: prefix whitelist for GET routes with dynamic params
+const whiteListPrefixes = ['/all/getGood/'];
 // 设置总体前置路由拦截
 app.use((req, res, next) => {
     // 处理优先发出的OPTIONS方法，返回200以便后面执行POST请求
@@ -129,7 +144,8 @@ app.use((req, res, next) => {
         res.sendStatus(200);
     } else {
         let info = {};
-        if (!whiteList.includes(req.url)) {// 如果路径不包括白名单路径就进行token验证
+        const isWhitelisted = whiteList.includes(req.url) || whiteListPrefixes.some(p => req.url.startsWith(p));
+        if (!isWhitelisted) {// 如果路径不包括白名单路径就进行token验证
             verifyToken(salt, req.headers.token).then(async (resx) => {// 验证token是否正确
                 if(resx.Permission == 0) {
                     info = await findPro('buyr_user', { "EMAIL": resx.EMAIL });
@@ -149,7 +165,7 @@ app.use((req, res, next) => {
             }).catch(e => {// 不正确就返回401状态token无效
                 res.status(401).send('invalid token')
             })
-        } else {// 如果路径在白名单内就直接进行跳转
+        } else {// 如果路径在白名单或前缀白名单内就直接进行跳转
             next()
         }
     }
@@ -169,6 +185,10 @@ app.use('/buyr', buyr);
 app.use('/seller', seller);
 app.use('/admin', admin);
 
+// 404 catch-all for unmatched API routes
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not found', path: req.originalUrl });
+});
 
 // websocket
 if (process.env.NODE_ENV !== 'test') {

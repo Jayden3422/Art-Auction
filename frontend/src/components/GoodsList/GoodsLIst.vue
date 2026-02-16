@@ -2,7 +2,7 @@
     <div>
         <div v-if="List.length != 0" class="goodsList">
             <div v-for="(item, index) in List" class="card" @click="detail(index)">
-                <img :src="item.IMG_URL" />
+                <img :src="item.IMG_URL" :alt="item.NAME" loading="lazy" />
                 <div class="content">
                     <div class="title">
                         <div class="tit">{{ $t('message.bidStarts') }}: ￥{{ item.UPSET_PRICE }}</div>
@@ -33,6 +33,7 @@ import { fullDate } from "../../components/date";
 import { getAPI, postAPI } from "../../utils/api";
 import router from '@/router';
 import { useI18n } from 'vue-i18n';
+import { setJsonLd, buildItemListJsonLd } from '../../utils/seo';
 export default {
     props: [
         "state",
@@ -118,6 +119,10 @@ export default {
                 }
                 await getE();
             }
+        }
+        // SEO: inject ItemList structured data for listing page
+        if (List.length > 0) {
+            setJsonLd(buildItemListJsonLd(List));
         }
         // 处理时间后的数组
         var timeList = reactive([]);

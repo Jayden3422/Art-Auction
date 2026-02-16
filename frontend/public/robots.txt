@@ -1,0 +1,11 @@
+User-agent: *
+Disallow: /home/mine
+Disallow: /home/order*
+Disallow: /home/admins
+Disallow: /home/users
+Disallow: /home/sellers
+Disallow: /home/goodinfo
+Disallow: /home/addannounce
+Disallow: /statistics
+
+Sitemap: /api1/all/sitemap.xml

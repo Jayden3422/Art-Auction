@@ -85,6 +85,20 @@ all.post('/getGood', jsonParser, async (req, res) => {
     }
 })
 
+// SEO: GET endpoint for item detail (crawlable)
+all.get('/getGood/:id', async (req, res) => {
+    try {
+        let good = await findPro("goods", { GOOD_ID: parseInt(req.params.id) });
+        if(isFine(good).judge) {
+            res.status(404).send('Item not found');
+            return;
+        }
+        res.json(good[0]);
+    }catch(e) {
+        res.status(500).send('Failed to obtain')
+    }
+})
+
 // 即将拍卖
 all.get('/getAllNear', async (req, res) => {
     var nowDate = new Date();
@@ -178,6 +192,69 @@ all.get('/getNewStat', async (req, res) => {
         var now = new Date();
     }catch(e) {
         res.status(500).send('Failed to obtain')
+    }
+})
+
+// SEO: Dynamic XML sitemap — only canonical, indexable, 200-status URLs
+all.get('/sitemap.xml', async (req, res) => {
+    const SITE_URL = process.env.SITE_URL || 'https://example.com';
+    try {
+        // Only publicly accessible pages (no auth required, no noindex)
+        let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+        xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n';
+        xml += '        xmlns:xhtml="http://www.w3.org/1999/xhtml">\n';
+
+        // Login page — en + zh hreflang
+        xml += `  <url>\n`;
+        xml += `    <loc>${SITE_URL}/login</loc>\n`;
+        xml += `    <xhtml:link rel="alternate" hreflang="en" href="${SITE_URL}/login?lang=en"/>\n`;
+        xml += `    <xhtml:link rel="alternate" hreflang="zh" href="${SITE_URL}/login?lang=zh"/>\n`;
+        xml += `    <xhtml:link rel="alternate" hreflang="x-default" href="${SITE_URL}/login"/>\n`;
+        xml += `    <changefreq>monthly</changefreq>\n`;
+        xml += `    <priority>0.8</priority>\n`;
+        xml += `  </url>\n`;
+
+        // SignIn page — en + zh hreflang
+        xml += `  <url>\n`;
+        xml += `    <loc>${SITE_URL}/signin</loc>\n`;
+        xml += `    <xhtml:link rel="alternate" hreflang="en" href="${SITE_URL}/signin?lang=en"/>\n`;
+        xml += `    <xhtml:link rel="alternate" hreflang="zh" href="${SITE_URL}/signin?lang=zh"/>\n`;
+        xml += `    <xhtml:link rel="alternate" hreflang="x-default" href="${SITE_URL}/signin"/>\n`;
+        xml += `    <changefreq>monthly</changefreq>\n`;
+        xml += `    <priority>0.6</priority>\n`;
+        xml += `  </url>\n`;
+
+        // Auction listing (public content, even if behind auth guard on frontend)
+        xml += `  <url>\n`;
+        xml += `    <loc>${SITE_URL}/home/auction</loc>\n`;
+        xml += `    <changefreq>daily</changefreq>\n`;
+        xml += `    <priority>0.9</priority>\n`;
+        xml += `  </url>\n`;
+
+        // Individual auction items — only active or upcoming (not ended/sold)
+        const nowDate = new Date();
+        let goodsList = await findSort("goods", { END_TIME: { $gt: nowDate } }, { START_TIME: -1 });
+        if (isFine(goodsList).judge) {
+            goodsList = [];
+        }
+
+        for (const good of goodsList) {
+            const lastmod = good.UPLOAD_TIME ? new Date(good.UPLOAD_TIME).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+            xml += `  <url>\n`;
+            xml += `    <loc>${SITE_URL}/home/detail?GOOD_ID=${good.GOOD_ID}</loc>\n`;
+            xml += `    <lastmod>${lastmod}</lastmod>\n`;
+            xml += `    <changefreq>daily</changefreq>\n`;
+            xml += `    <priority>0.9</priority>\n`;
+            xml += `  </url>\n`;
+        }
+
+        xml += '</urlset>';
+
+        res.set('Content-Type', 'application/xml');
+        res.set('Cache-Control', 'public, max-age=3600');
+        res.send(xml);
+    } catch (e) {
+        res.status(500).send('Error generating sitemap');
     }
 })
 

@@ -49,7 +49,7 @@
 </template>
 <script>
 import { reactive, ref } from "@vue/reactivity";
-import GoodsList from "../../components/GoodsList/GoodsLIst.vue";
+import GoodsList from "../../components/GoodsList/GoodsList.vue";
 import { jwtDecode } from "jwt-decode";
 import Cookie from 'js-cookie';
 import store from '@/store';

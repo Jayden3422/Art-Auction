@@ -1,335 +1,405 @@
-# Art-Auction-Platform - Design and Implementation
+# Art Auction Platform
+
+**English** | [中文](README.zh.md)
+
+A full-stack online art auction platform built with **Vue 3** and **Express.js**, featuring real-time WebSocket bidding, role-based access control, engineering-level SEO for single-page applications, and data visualization with PDF export.
 
 ## Table of Contents
 
 - [Project Overview](#project-overview)
-  - [Background](#background)
   - [Key Points](#key-points)
-  - [Technologies Used](#technologies-used)
+  - [Tech Stack](#tech-stack)
 - [Installation and Setup](#installation-and-setup)
-  - [Frontend](#frontend)
-  - [Backend](#backend)
-  - [Database](#database)
-- [Key Feature](#key-feature)
-  - [Internationalization](#internationalization)
-  - [RESTful](#restful)
-  - [Artwork auction module](#artwork-auction-module)
-  - [Data statistics module](#data-statistics-module)
+- [Key Features](#key-features)
+  - [Internationalization (i18n)](#internationalization-i18n)
+  - [RESTful API Design](#restful-api-design)
+  - [Real-Time Auction Module](#real-time-auction-module)
+  - [Data Statistics & PDF Export](#data-statistics--pdf-export)
+- [SEO Engineering](#seo-engineering)
+  - [Challenge: SEO for a Vue SPA](#challenge-seo-for-a-vue-spa)
+  - [Architecture Overview](#architecture-overview)
+  - [Backend SEO Infrastructure](#backend-seo-infrastructure)
+  - [Frontend Dynamic Meta Management](#frontend-dynamic-meta-management)
+  - [Structured Data (JSON-LD)](#structured-data-json-ld)
+  - [Internationalization SEO (hreflang)](#internationalization-seo-hreflang)
+  - [Prerendering Strategy](#prerendering-strategy)
+  - [Crawlability & Indexing Control](#crawlability--indexing-control)
 - [Testing](#testing)
-  - [Rate Limiting Test](#rate-limiting-test-rate-limittestjs)
-  - [Other Tests](#other-tests)
-- [System architecture design](#system-architecture-design)
-- [Functional module outline design](#functional-module-outline-design)
-  - [Registration and login module](#registration-and-login-module)
-  - [Artwork publishing module](#artwork-publishing-module)
-  - [Personal information management module](#personal-information-management-module)
-  - [User management module](#user-management-module)
-  - [Order management module](#order-management-module)
-  - [Notification management module](#notification-management-module)
-  - [Product management module](#product-management-module)
+- [System Architecture](#system-architecture)
+- [Functional Modules](#functional-modules)
+  - [Registration & Login](#registration--login)
+  - [Artwork Publishing](#artwork-publishing)
+  - [Personal Information Management](#personal-information-management)
+  - [User Management (Admin)](#user-management-admin)
+  - [Order Management](#order-management)
+  - [Notification Management](#notification-management)
+  - [Product Management (Admin)](#product-management-admin)
+
+---
 
 ## Project Overview
 
-This is my undergraduate thesis project: an online art auction platform built to provide a convenient, secure, and efficient space for art trading. It allows users to browse, bid on, and purchase artworks digitally.
-
-### Background
-
-With the rise of the internet, art trading is shifting online. This platform simplifies traditional auction processes, promotes cultural exchange, and provides data insights for market analysis.
+An online art auction platform that provides a secure and efficient space for art trading. Users can browse, bid on, and purchase artworks across categories including paintings, calligraphy, ceramics, sculptures, metalwork, and rare stones.
 
 ### Key Points
 
-- User registration and login.
-- Art listing and publishing. 
-- Real-time bidding and auction management.
-- Order and notification handling.  
-- Admin tools for user and product management. 
-- Data statistics and visualization.
+- JWT-based authentication with role-based permission control (buyer / seller / admin)
+- Real-time bidding via WebSocket with bid validation and auto-lock at auction end
+- Full auction lifecycle: upcoming → active → completed → order fulfillment
+- Admin dashboard with user, product, order, and notification management
+- Data visualization (ECharts) with PDF report export (html2canvas + jsPDF + Web Workers)
+- Bilingual support (English / Chinese) via vue-i18n
+- Engineering-level SEO optimized for search engine crawlability in a Vue SPA
 
-### Technologies Used
+### Tech Stack
 
-- Frontend: `HTML5`, `CSS3`, `Javascript`, `Vue.js`.
-- Backend: `Node.js`, `Express.js`.
-- Database: `MongoDB`. 
-- Other: `Ant design of vue`, `websocket`, `Less`, `Axios`, `Echarts`.
+| Layer | Technologies |
+|-------|-------------|
+| Frontend | Vue 3, Vue Router 4, Vuex 4, Ant Design Vue, Less |
+| Backend | Node.js 20, Express.js, WebSocket |
+| Database | MongoDB |
+| SEO | Custom DOM-based meta management, JSON-LD, dynamic sitemap, prerendering |
+| Testing | Jest, supertest |
+| DevOps | Aliyun OSS (image hosting), compression (gzip), Content-Security-Policy |
+| Visualization | ECharts, html2canvas, jsPDF, Web Workers |
 
 ## Installation and Setup
 
-This project uses `node.js 20`.
+### Prerequisites
 
-### Frontend
-
-1. Clone the repo.
-2. Navigate to `/frontend`: `cd frontend` 
-3. Install dependencies: `npm install`
-4. Change the address in `frontend\vue.config.js`, `frontend\src\ws\configs\index.js `, `frontend\src\store\state.js` and `frontend\src\utils\request.js`.
-5. Run: `npm run serve`
+- Node.js 20+
+- MongoDB running locally (default: `mongodb://localhost:27017/`)
 
 ### Backend
 
-1. Navigate to `/backend`: `cd backend`
-2. Install dependencies: `npm install`
-3. Set up `ali-oss` in `backend\tools\aliOSS.js`.
-4. Set up MongoDB connection in `backend\tools\Mongo.js`.
-5. Set up the path of `ali-oss` in `backend\tools\dofs.js`.
-6. Run: `node server.js`
+```bash
+cd backend
+cp .env.sample .env     # Edit with your MongoDB, JWT, OSS, and site URL settings
+npm install
+node server.js
+```
+
+**Environment variables** (`.env`):
+| Variable | Purpose |
+|----------|---------|
+| `APP_PORT` | Express server port (default: 3000) |
+| `WS_PORT` | WebSocket server port (default: 3001) |
+| `MONGO_URL` | MongoDB connection string |
+| `JWT_SALT` | JWT signing secret |
+| `SITE_URL` | Public site URL for sitemap generation |
+| `OSS_*` | Aliyun OSS credentials for image storage |
+
+### Frontend
+
+```bash
+cd frontend
+cp .env.sample .env     # Set ports and optional GSC verification code
+npm install
+npm run serve           # Development
+npm run build           # Production (includes prerendering)
+```
 
 ### Database
 
-Can run `data\liujinqi.js` to create a `MongoDB` database (including structure and data).
+```bash
+# Seed MongoDB with initial structure and sample data
+node data/liujinqi.js
+```
 
-## Key Feature
+---
 
-### Internationalization
+## Key Features
 
-This project supports internationalization and currently includes two languages: **English** and **Chinese**.
+### Internationalization (i18n)
 
-The internationalization feature is configured using the **`vue-i18n`** library. The default language is set to English (`en`). You can find the language-specific content in the following files:
+Configured with **vue-i18n**. Default language is English with Chinese as the secondary language. Language files are located at `frontend/src/locales/en.js` and `frontend/src/locales/zh.js`. A language toggle is available in the page header.
 
-- `./locales/en.js`
-- `./locales/zh.js`
+### RESTful API Design
 
-There is a language switch button at the top of the page.
+Axios is encapsulated in `frontend/src/utils/` to provide a clean RESTful interface using standard HTTP methods (GET, POST, PUT, DELETE). The API layer handles request/response transformation, error handling, and token injection.
 
-### RESTful
+### Real-Time Auction Module
 
-In `frontend\src\utils` I encapsulated Axios to implement RESTful endpoints.
+The auction module implements real-time bidding through **WebSocket** (`frontend/src/ws/`), enabling:
 
-RESTful endpoints are specific URLs in a web API. They follow REST principles. REST means Representational State Transfer. It uses standard HTTP methods like GET, POST, PUT, and DELETE.
+- Live bid updates visible to all connected users simultaneously
+- Bid validation: rejects bids below the starting price or current highest bid + increment
+- Duplicate bid prevention per user
+- Automatic lock when the auction end time is reached
+- Order generation for the winning bidder
 
-In my project, I created these endpoints. For example, a GET endpoint fetches real-time data from the back-end server. A POST endpoint sends user inputs or updates. This setup lets the front-end talk to the back-end easily. It keeps data sync fast and handles errors well. 
+**Auction lifecycle:** Upcoming (preview & follow) → Active (real-time bidding) → Completed (view results & order history)
 
-### Artwork auction module
+<img src="README.assets/Artwork auction module timing diagram.png" alt="Auction module timing diagram" style="zoom: 90%;" />
 
-The Artwork Auction module primarily implements platform functions related to artwork auctions. The front-end displays images and basic information about artworks, and uses two-way `WebSocket` technology to enable users to view other users' bids in real time.
+| View | Screenshot |
+|------|-----------|
+| Buyer - Upcoming | ![Upcoming](README.assets/Snipaste_2025-09-05_21-55-07.png) |
+| Buyer - Completed | ![Completed](README.assets/Snipaste_2025-09-05_21-55-22.png) |
+| Buyer - Active bidding | ![Active](README.assets/Snipaste_2025-09-05_21-56-29.png) |
+| Bid below minimum (red warning) | ![Below min](README.assets/Snipaste_2025-09-05_21-56-35.png) |
+| Real-time multi-user bids | ![Multi-user](README.assets/Snipaste_2025-09-05_21-57-10.png) |
+| Auto-lock at end time | ![Locked](README.assets/Snipaste_2025-09-05_22-16-08.png) |
+| Winner & order generated | ![Winner](README.assets/Snipaste_2025-09-05_22-17-08.png) |
+| Admin - Auction overview | ![Admin](README.assets/Snipaste_2025-09-05_21-09-17.png) |
 
-The tool function I made using `WebSocket` in `frontend\src\ws`.
+### Data Statistics & PDF Export
 
-This module allows users to browse artworks that are about to be auctioned, currently being auctioned, and have already been auctioned. Each stage displays basic information about the artwork and its corresponding auction status. In the upcoming auction section, users can preview artworks and follow auctions of interest; in the ongoing auction section, users can bid in real time and view the auction progress; and in the completed auction section, users can view the final transaction price and bidding history. For items that have been auctioned successfully, users can view related orders and understand their real-time status. This feature allows users to conveniently browse and participate in auctions, enjoying a rich and diverse art auction experience.
+Uses **ECharts** to render line charts, pie charts, and histograms for auction trend analysis across art categories.
 
-<img src="README.assets/Artwork auction module timing diagram.png" alt="image-20250906011844019" style="zoom: 90%;" />
-
-A Buyer's Perspective on Unsold Artworks: 
-
-![Snipaste_2025-09-05_21-55-07](README.assets/Snipaste_2025-09-05_21-55-07.png)
-
-Artworks that have concluded auctions from a buyer's perspective: 
-
-![Snipaste_2025-09-05_21-55-22](README.assets/Snipaste_2025-09-05_21-55-22.png)
-
-Artworks not auctioned from the administrator's perspective: 
-
-![Snipaste_2025-09-05_21-09-17](README.assets/Snipaste_2025-09-05_21-09-17.png)
-
-Artworks that have concluded auctions from the administrator's perspective: 
-
-![Snipaste_2025-09-05_21-14-37](README.assets/Snipaste_2025-09-05_21-14-37.png)
-
-Artworks at auction from a buyer's perspective: 
-
-![Snipaste_2025-09-05_21-56-29](README.assets/Snipaste_2025-09-05_21-56-29.png)
-
-When a user bids, if the bid is lower than the starting price, it will be marked in red and submission will be prohibited: 
-
-![Snipaste_2025-09-05_21-56-35](README.assets/Snipaste_2025-09-05_21-56-35.png)
-
-Websocket enables real-time display of bid lists by multiple users. Multiple bids are not allowed to be made repeatedly, and the subsequent bidders must increase the bid according to the increment step. Another user's perspective on price increases: 
-
-![Snipaste_2025-09-05_21-57-10](README.assets/Snipaste_2025-09-05_21-57-10.png)
-
-Once the end time is reached, the system will be locked and no bids will be allowed:
-
-![Snipaste_2025-09-05_22-16-08](README.assets/Snipaste_2025-09-05_22-16-08.png)
-
-The highest bidder wins and a corresponding order is generated: 
-
-![Snipaste_2025-09-05_22-17-08](README.assets/Snipaste_2025-09-05_22-17-08.png)
-
-![Snipaste_2025-09-05_22-18-09](README.assets/Snipaste_2025-09-05_22-18-09.png)
-
-### Data statistics module
-
-This module allows users to view auction trends for different art categories, understand auction performance for each category over different time periods, and provide sales statistics and charts. In addition to viewing statistics, users can also generate PDF reports for easy storage and sharing. The data statistics module provides users with a comprehensive understanding of the auction market, providing a reference for future trading decisions.
+**PDF export** is implemented with `html2canvas` + `jsPDF` + **Web Workers**:
+- Pages are split into DOM segments to avoid browser canvas height limits
+- Each segment is rendered to canvas, then merged into a single PDF
+- Elements at page boundaries are handled via a special class that treats them as atomic blocks to prevent mid-element truncation
 
 <img src="README.assets/Data statistics module timing diagram.png" alt="Data statistics module timing diagram" style="zoom:50%;" />
 
-The data statistics module uses the `Echarts` library to draw line charts, pie charts, and histograms to display statistical information. 
-
-![Snipaste_2025-09-05_21-36-08](README.assets/Snipaste_2025-09-05_21-36-08.png)
-
-![Snipaste_2025-09-05_21-39-09](README.assets/Snipaste_2025-09-05_21-39-09.png)
-
-![Snipaste_2025-09-05_21-39-30](README.assets/Snipaste_2025-09-05_21-39-30.png)
-
-It also implements the front-end export function for PDF reports, using the `html2canvas` library to convert interface elements into Canvas images, and then using the jspdf library to create PDF files. During the implementation process, the browser limited the drawing length when converting the page to Canvas, which could cause subsequent pages to appear blank or black. To address this issue, the platform split the page into multiple DOM segments, converted them into PDF data, and merged them one by one, ultimately successfully exporting the entire PDF file.
-
-If truncation occurs when exporting directly to PDF, you'll need to manually specify the depth endpoint. This is because paging for common elements is determined by height difference. It's possible that an element will be located at a paging point, especially with images drawn by `Echarts`. When this happens, find the corresponding truncation element and add a special class name to it. This will treat it as the depth endpoint, and its child elements will not be traversed. The system will then calculate whether the entire block exceeds one page. The method in `frontend\src\components\pdf.js`.
+| Visualization | Screenshot |
+|---------------|-----------|
+| Trend analysis | ![Trends](README.assets/Snipaste_2025-09-05_21-36-08.png) |
+| Category breakdown | ![Categories](README.assets/Snipaste_2025-09-05_21-39-09.png) |
+| Detailed stats | ![Stats](README.assets/Snipaste_2025-09-05_21-39-30.png) |
+| Exported PDF report | ![PDF](README.assets/report-pdf.png) |
 
 ![Page cutting principle](README.assets/Page cutting principle.png)
 
-This section uses `Web Workers`, which allow developers to write background programs that can be separated from the main thread and run for a long time without being interrupted by the user.
+---
 
-The following is the report in exported pdf format: 
+## SEO Engineering
 
-![report-pdf](README.assets/report-pdf.png)
+### Challenge: SEO for a Vue SPA
 
+Single-page applications are inherently difficult for search engines to crawl. The entire UI is rendered client-side via JavaScript, meaning crawlers see an empty `<div id="app">` on initial page load. Traditional solutions involve migrating to SSR (Nuxt.js) or SSG, which require significant architectural changes.
+
+**My approach:** Implement a multi-layer SEO system *without* migrating away from Vue CLI, using a combination of backend infrastructure, client-side dynamic meta management, structured data injection, and selective prerendering.
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SEO Architecture                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Backend (Express.js)                                       │
+│  ├── gzip compression (compression middleware)              │
+│  ├── Security headers (CSP, X-Content-Type-Options)         │
+│  ├── GET /all/getGood/:id — crawler-accessible endpoint     │
+│  ├── GET /all/sitemap.xml — dynamic XML sitemap from DB     │
+│  └── 404 catch-all with proper status code                  │
+│                                                             │
+│  Frontend (Vue 3)                                           │
+│  ├── Router guard → updateRouteMeta() on every navigation   │
+│  │   ├── document.title                                     │
+│  │   ├── <meta> description, keywords, og:*, twitter:*      │
+│  │   ├── <link rel="canonical">                             │
+│  │   └── <link rel="alternate" hreflang="...">              │
+│  ├── Detail pages → dynamic Product JSON-LD                 │
+│  ├── Listing pages → ItemList JSON-LD                       │
+│  ├── App-level → WebSite + Organization JSON-LD             │
+│  ├── 404 catch-all route with noindex meta                  │
+│  └── Prerendering (/login, /signin) at build time           │
+│                                                             │
+│  Static Assets                                              │
+│  ├── robots.txt — auth-only pages blocked                   │
+│  ├── index.html — foundation meta + OG + Twitter Card       │
+│  └── .env — GSC verification, site URL config               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Backend SEO Infrastructure
+
+**File:** `backend/app.js`, `backend/routers/all.js`
+
+1. **Gzip compression** — `compression` middleware reduces response sizes, improving page speed (a ranking factor).
+
+2. **Security headers** — Content-Security-Policy, X-Content-Type-Options, X-Frame-Options applied to all responses. Modern CSP replaces the deprecated X-XSS-Protection header.
+
+3. **Crawler-accessible GET endpoint** — Converted the POST-only `/all/getGood` to also support `GET /all/getGood/:id`, allowing search engine crawlers to access individual item data without requiring a POST body.
+
+4. **Dynamic XML sitemap** (`GET /all/sitemap.xml`) — Queries MongoDB for all active and upcoming auction items, generates a standards-compliant XML sitemap with:
+   - `<lastmod>` timestamps
+   - `<xhtml:link rel="alternate" hreflang="...">` for each URL (en, zh, x-default)
+   - Only includes canonical, indexable URLs (excludes ended/discontinued items)
+
+5. **404 catch-all** — After all route definitions, a catch-all middleware returns `404` status with a JSON response body, ensuring crawlers receive proper HTTP status codes for non-existent routes.
+
+### Frontend Dynamic Meta Management
+
+**File:** `frontend/src/utils/seo.js` — A zero-dependency utility module (~220 lines) that manages all SEO concerns via direct DOM manipulation.
+
+**Why no external library?** Libraries like `@unhead/vue` add bundle size and complexity. Since the project uses Vue CLI (not Nuxt), native `document.querySelector` + `document.createElement` provides full control with no dependencies.
+
+Key functions:
+
+| Function | Purpose |
+|----------|---------|
+| `setMetaTag(attr, key, content)` | Creates or updates any `<meta>` tag |
+| `setCanonicalUrl(path)` | Sets `<link rel="canonical">` to prevent duplicate content |
+| `setHreflang(path)` | Sets bidirectional `<link rel="alternate" hreflang>` for en/zh/x-default |
+| `updateRouteMeta(meta, fullPath, path)` | Called in router `beforeEach` guard — updates title, description, keywords, OG tags, canonical, and hreflang on every navigation |
+
+**Router integration** (`main.js`): Every route in `router/index.js` carries `meta: { title, description, keywords }`. The `beforeEach` guard calls `updateRouteMeta()` to update all meta tags before each page renders.
+
+### Structured Data (JSON-LD)
+
+Injects Schema.org structured data to enable Google Rich Results:
+
+| Schema | Location | Purpose |
+|--------|----------|---------|
+| **Product + Offer** | Detail page (`Detail.vue`, `DetailS.vue`) | Individual auction items with price, availability (4-state: PreOrder/InStock/SoldOut/Discontinued), seller, SKU, availability window |
+| **WebSite** | App.vue (mounted) | Site-level identity for search engines |
+| **Organization** | App.vue (mounted) | Organization info for Knowledge Panel |
+| **ItemList** | GoodsList.vue | Auction listing page with up to 50 items, enabling carousel/list rich results |
+
+**Product availability logic** maps auction state to Schema.org enums:
+```
+Auction not started  → schema.org/PreOrder
+Auction active       → schema.org/InStock + availabilityEnds
+Auction ended (sold) → schema.org/SoldOut
+Auction ended (unsold) → schema.org/Discontinued
+```
+
+### Internationalization SEO (hreflang)
+
+Bidirectional hreflang annotations tell search engines about language variants:
+
+- **Client-side:** `setHreflang(path)` dynamically injects `<link rel="alternate" hreflang="en|zh|x-default">` on every route change
+- **Sitemap:** Each URL entry includes `<xhtml:link>` alternates for all language variants
+- **index.html:** Default hreflang links present in static HTML as fallback
+- **Google Search Console:** Verification meta tag configurable via `VUE_APP_GSC_VERIFICATION` environment variable
+
+### Prerendering Strategy
+
+**File:** `frontend/vue.config.js`
+
+For public landing pages (`/login`, `/signin`), uses `@prerenderer/webpack-plugin` with Puppeteer to generate static HTML at build time. This gives crawlers fully rendered HTML for key entry points without requiring SSR infrastructure.
+
+```js
+// Production builds only — gracefully degrades if Puppeteer is unavailable
+if (isProduction) {
+  new PrerendererWebpackPlugin({
+    routes: ['/login', '/signin'],
+    renderer: '@prerenderer/renderer-puppeteer',
+    rendererOptions: { renderAfterTime: 5000, headless: true }
+  })
+}
+```
+
+### Crawlability & Indexing Control
+
+- **robots.txt** — Blocks only authenticated management pages (admin panels, personal settings, order history). All public pages are crawlable.
+- **404 page** (`NotFound.vue`) — Catch-all route renders a user-friendly 404 with `<meta name="robots" content="noindex, nofollow">` to prevent indexing.
+- **Image accessibility** — All `<img>` tags include `:alt` attributes bound to item names and `loading="lazy"` for performance.
+
+---
 
 ## Testing
 
-Backend uses **Jest** + **supertest**. Run with:
+Backend uses **Jest** + **supertest**:
 
 ```bash
 cd backend
 npm test
 ```
 
-All test files are located in `backend/__tests__/`.
+All test files are in `backend/__tests__/`.
 
-### Rate Limiting Test (`rate-limit.test.js`)
+| Test File | Coverage |
+|-----------|----------|
+| `rate-limit.test.js` | Rate limiting middleware — verifies 429 after threshold |
+| `judge.test.js` | Input validation (phone, email, date, QQ, WeChat) |
+| `base64.test.js` | Base64 encode/decode round-trip |
+| `md5.test.js` | MD5 hash determinism and salt differentiation |
+| `token.test.js` | JWT creation, verification, expiry |
+| `promise.test.js` | `isFine()` utility for Promise result handling |
+| `middleware.test.js` | CORS headers, OPTIONS handling, token auth |
 
-Tests the `express-rate-limit` middleware. In test mode (`NODE_ENV=test`), the threshold is reduced to 2 requests per window. The test sends 3 consecutive requests and verifies the first 2 return `200` while the 3rd returns `429`.
+---
 
-```js
-test('returns 429 after exceeding configured request threshold', async () => {
-    const first = await request(app).get('/');
-    const second = await request(app).get('/');
-    const third = await request(app).get('/');
+## System Architecture
 
-    expect(first.statusCode).toBe(200);
-    expect(second.statusCode).toBe(200);
-    expect(third.statusCode).toBe(429);
-    expect(third.body.message).toBe('Too many requests, please try again later.');
-});
-```
-
-### Other Tests
-
-- **judge.test.js** — Input validation (phone, email, date, QQ, WeChat)
-- **base64.test.js** — Base64 encode/decode round-trip
-- **md5.test.js** — MD5 hash determinism and salt differentiation
-- **token.test.js** — JWT creation, verification, expiry
-- **promise.test.js** — `isFine()` utility for Promise result checking
-- **middleware.test.js** — CORS headers, OPTIONS handling, token auth
-
-## System architecture design
-
-The system architecture is shown in the figure. Process 1 shows how the platform manages user permissions based on the user ID according to the permissions dictionary in the database. Process 2 shows how the backend uses the mongodb package to perform operations such as add, delete, modify, and query on the MongoDB database. Process 3 shows how the backend interacts with the frontend through Axios. Process 4 shows how the frontend and backend interact by sending HTTP requests and responses. Process 5 shows how the frontend identifies roles based on different user tokens and determines whether the user can access corresponding modules and operations based on user permissions, thereby protecting the security of the platform and data.
+Permission-based architecture with JWT tokens:
+1. User permissions are resolved from a database permission dictionary based on user ID
+2. Backend uses the `mongodb` driver for CRUD operations
+3. Frontend communicates with backend via Axios over RESTful HTTP
+4. JWT tokens encode role and permission IDs; the frontend router guard checks `pids` before granting page access
 
 <img src="README.assets/System architecture diagram.jpg" alt="System architecture diagram" style="zoom:50%;" />
 
-## Functional module outline design
+---
 
-This system will be divided into two main parts: the user side and the backend management system. On the user side, the main functions include the buyer interface and the seller interface. The buyer interface covers functions such as browsing artworks, participating in auctions, and viewing orders, while the seller interface includes functions such as adding products, editing product information, and processing orders. The backend management system mainly includes user management, order management, and product management. The user management module allows administrators to manage user accounts, the order management module is responsible for processing orders, and the product management module is used to manage artwork information. The functional module design of this system is shown in the figure.
+## Functional Modules
+
+The platform is divided into a **user-facing side** (buyer + seller interfaces) and an **admin management system**.
 
 ![Overall functional module diagram](README.assets/Overall functional module diagram.png)
 
-### Registration and login module
+### Registration & Login
 
-Buyers and sellers enter the required information, including username, email address, phone number, and password, through the registration interface and undergo verification. After successful registration, users can log in using the email address and password they entered during registration. The system compares the entered email address and password with the database, and users can log in if the match is successful. The registration and login module provides a unified entry point for various user roles in the system, ensuring system security and reliability, and allowing users to obtain corresponding permissions and functional operations based on their role identity.
+Users register with username, email, phone, and password. Login validates credentials against the database and issues a JWT. A canvas-drawn CAPTCHA (`frontend/src/components/Identify.vue`) with interference lines prevents automated submissions.
 
 <img src="README.assets/Registration and login sequence diagram.png" alt="Registration and login sequence diagram" style="zoom:50%;" />
 
-![Snipaste_2025-09-05_20-58-59](README.assets/Snipaste_2025-09-05_20-58-59.png)
+| Screenshot |
+|-----------|
+| ![Login](README.assets/Snipaste_2025-09-05_20-58-59.png) |
+| ![Register](README.assets/Snipaste_2025-09-05_20-59-53.png) |
+| ![Captcha examples](README.assets/image-20250906013936314.png) |
 
-![Snipaste_2025-09-05_20-59-53](README.assets/Snipaste_2025-09-05_20-59-53.png)
+### Artwork Publishing
 
-![Snipaste_2025-09-05_23-04-19](README.assets/Snipaste_2025-09-05_23-04-19.png)
+Sellers submit artwork details (title, description, starting price, images). Submissions go through admin review for legality and authenticity before being published.
 
-#### Verification code drawing
+<img src="README.assets/Artwork publishing module timing diagram.png" alt="Artwork publishing sequence diagram" style="zoom:50%;" />
 
-In `frontend\src\components\Identify.vue`.
+![Publishing form](README.assets/Snipaste_2025-09-05_22-23-33.png)
 
-Use this function to draw a 4-digit verification code, and draw interference lines and random color points.
+### Personal Information Management
 
-Here are the examples:
-
-![image-20250906013936314](README.assets/image-20250906013936314.png)
-
-### Artwork publishing module
-
-Sellers can enter information such as the artwork's title, description, starting price, and upload images. Once the artwork's information is complete, the seller can submit it to the administrator for review. The administrator will verify the artwork's legality and authenticity to ensure it complies with platform regulations. Once approved, the artwork will be published on the platform for users to browse and bid on.
-
-<img src="README.assets/Artwork publishing module timing diagram.png" alt="Artwork publishing module timing diagram" style="zoom:50%;" />
-
-![Snipaste_2025-09-05_22-23-33](README.assets/Snipaste_2025-09-05_22-23-33.png)
-
-### Personal information management module
-
-The Personal Information Management module allows users to view and modify their personal information. Users can browse and edit their profile information, including their nickname, email address, and phone number. Additionally, users can change their password and upload an avatar. This module allows users to easily manage their personal information, ensuring account security and information accuracy.
+Users can view and edit profile information, change passwords, and upload avatars.
 
 <img src="README.assets/Personal Information Management Sequence Diagram.png" alt="Personal Information Management Sequence Diagram" style="zoom:50%;" />
 
-![Snipaste_2025-09-05_22-00-28](README.assets/Snipaste_2025-09-05_22-00-28.png)
+| ![Profile view](README.assets/Snipaste_2025-09-05_22-00-28.png) | ![Profile edit](README.assets/Snipaste_2025-09-05_22-00-38.png) |
+|---|---|
 
-![Snipaste_2025-09-05_22-00-38](README.assets/Snipaste_2025-09-05_22-00-38.png)
+### User Management (Admin)
 
-### User management module
+Administrators can add, delete, and modify user accounts.
 
-The User Management module allows administrators to fully manage user accounts. Administrators can perform various operations, including adding new users, deleting existing users, and modifying user information. This module allows administrators to effectively manage users on the system and ensure the accuracy and security of user information.
+<img src="README.assets/User management module timing diagram.png" alt="User management sequence diagram" style="zoom:50%;" />
 
-<img src="README.assets/User management module timing diagram.png" alt="User management module timing diagram" style="zoom:50%;" />
+| ![User list](README.assets/Snipaste_2025-09-05_21-43-06.png) | ![User detail](README.assets/Snipaste_2025-09-05_21-43-11.png) |
+|---|---|
 
-![Snipaste_2025-09-05_21-43-06](README.assets/Snipaste_2025-09-05_21-43-06.png)
+### Order Management
 
-![Snipaste_2025-09-05_21-43-11](README.assets/Snipaste_2025-09-05_21-43-11.png)
+Orders are categorized by status: pending, processing, and completed. Buyers fill in shipping info after winning; sellers confirm and ship; buyers confirm receipt.
 
-![Snipaste_2025-09-05_21-43-47](README.assets/Snipaste_2025-09-05_21-43-47.png)
+<img src="README.assets/Order management module sequence diagram.png" alt="Order management sequence diagram" style="zoom:50%;" />
 
-![Snipaste_2025-09-05_21-44-45](README.assets/Snipaste_2025-09-05_21-44-45.png)
+| Stage | Screenshot |
+|-------|-----------|
+| Buyer fills shipping info | ![Shipping](README.assets/Snipaste_2025-09-05_22-19-49.png) |
+| Seller ships | ![Ship](README.assets/Snipaste_2025-09-05_22-22-00.png) |
+| Order tracking | ![Tracking](README.assets/Snipaste_2025-09-05_22-22-24.png) |
+| Buyer confirms receipt | ![Confirm](README.assets/Snipaste_2025-09-05_22-22-45.png) |
 
-![Snipaste_2025-09-05_21-43-15](README.assets/Snipaste_2025-09-05_21-43-15.png)
+### Notification Management
 
-### Order management module
+Administrators create and push notifications (e.g., new artwork uploads). All users can view the notification feed.
 
-This module categorizes and displays all orders by status: pending, uncompleted, and completed. Each order displays basic information such as the order number, product information, and status. Buyers can confirm and process their orders. If the bid is successful, the seller must process the order, including confirming and shipping the item, to complete the transaction. Administrators also have the ability to modify and delete order status. Through the Order Management module, system users can easily track and manage all order information.
+<img src="README.assets/Notification management module timing diagram.png" alt="Notification management sequence diagram" style="zoom:50%;" />
 
-<img src="README.assets/Order management module sequence diagram.png" alt="Order management module sequence diagram" style="zoom:50%;" />
+| ![Admin notifications](README.assets/Snipaste_2025-09-05_21-16-26.png) | ![User notifications](README.assets/Snipaste_2025-09-05_22-00-49.png) |
+|---|---|
 
-After the auction is over, the order is generated and the buyer can fill in the shipping information: 
+### Product Management (Admin)
 
-![Snipaste_2025-09-05_22-19-49](README.assets/Snipaste_2025-09-05_22-19-49.png)
+Administrators manage artworks: publish, edit, delete, set auction times and rules. Products are filterable by auction status and category.
 
-After the payment, the corresponding seller can ship the artwork and update the order after knowing the shipping information: 
+<img src="README.assets/Product management module sequence diagram.png" alt="Product management sequence diagram" style="zoom:50%;" />
 
-![Snipaste_2025-09-05_22-22-00](README.assets/Snipaste_2025-09-05_22-22-00.png)
-
-![Snipaste_2025-09-05_22-22-24](README.assets/Snipaste_2025-09-05_22-22-24.png)
-
-![Snipaste_2025-09-05_22-22-36](README.assets/Snipaste_2025-09-05_22-22-36.png)
-
-Finally, the buyer can confirm receipt: 
-
-![Snipaste_2025-09-05_22-22-45](README.assets/Snipaste_2025-09-05_22-22-45.png)
-
-![Snipaste_2025-09-05_22-22-59](README.assets/Snipaste_2025-09-05_22-22-59.png)
-
-### Notification management module
-
-The Notification Management module displays all notifications in the system, including notifications about new artwork uploads. Each notification displays a title and description, allowing users to quickly browse and understand the content. Administrators can edit and push notifications to ensure that important information is promptly communicated to system users. Sellers and buyers can view these notifications in the Notification List, keeping up to date with important system developments and information.
-
-<img src="README.assets/Notification management module timing diagram.png" alt="Notification management module timing diagram" style="zoom:50%;" />
-
-Notification list from the administrator's perspective: 
-
-![Snipaste_2025-09-05_21-16-26](README.assets/Snipaste_2025-09-05_21-16-26.png)
-
-Notification list from the user's perspective: 
-
-![Snipaste_2025-09-05_22-00-49](README.assets/Snipaste_2025-09-05_22-00-49.png)
-
-### Product management module
-
-Administrators can publish, modify, and delete product information to ensure timely update and management of product information. In addition, administrators can also set the auction time and rules of the product to ensure the smooth progress and management of the auction.
-
-<img src="README.assets/Product management module sequence diagram.png" alt="Product management module sequence diagram" style="zoom:50%;" />
-
-View artworks by auction status: 
-
-![Snipaste_2025-09-05_21-11-55](README.assets/Snipaste_2025-09-05_21-11-55.png)
-
-![Snipaste_2025-09-05_21-14-19](README.assets/Snipaste_2025-09-05_21-14-19.png)
-
-![Snipaste_2025-09-05_21-09-31](README.assets/Snipaste_2025-09-05_21-09-31.png)
-
-View a list of artworks by category: 
-
-![Snipaste_2025-09-05_21-15-21](README.assets/Snipaste_2025-09-05_21-15-21.png)
+| ![By status](README.assets/Snipaste_2025-09-05_21-11-55.png) | ![By category](README.assets/Snipaste_2025-09-05_21-15-21.png) |
+|---|---|
