@@ -53,6 +53,35 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const isDevEnv = process.env.NODE_ENV === 'development';
 
+function resolveTrustProxy(rawValue) {
+    if (rawValue === undefined || rawValue === null || rawValue === '') {
+        // Safe defaults:
+        // - production: trust first reverse proxy hop
+        // - non-production: trust local proxy tooling only
+        return process.env.NODE_ENV === 'production' ? 1 : 'loopback';
+    }
+
+    if (typeof rawValue === 'boolean' || typeof rawValue === 'number') {
+        return rawValue;
+    }
+
+    const normalized = String(rawValue).trim();
+    const lower = normalized.toLowerCase();
+
+    if (lower === 'true') {
+        return true;
+    }
+    if (lower === 'false') {
+        return false;
+    }
+    if (/^\d+$/.test(normalized)) {
+        return Number(normalized);
+    }
+    return normalized;
+}
+
+app.set('trust proxy', resolveTrustProxy(process.env.TRUST_PROXY));
+
 // 配置 i18n
 i18n.configure({
   locales: ['en', 'zh'], // 支持的语言

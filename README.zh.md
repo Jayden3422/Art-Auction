@@ -86,6 +86,7 @@ npm start               # 生产运行
 |------|------|
 | `APP_PORT` | Express 服务端口（默认：3000） |
 | `WS_PORT` | WebSocket 服务端口（默认：3001） |
+| `TRUST_PROXY` | Express 反向代理信任配置，用于在代理后正确识别客户端 IP（如 `1`、`true`、`loopback`） |
 | `MONGO_URL` | MongoDB 连接字符串 |
 | `JWT_SALT` | JWT 签名密钥 |
 | `SITE_URL` | 站点公开 URL，用于 Sitemap 生成 |

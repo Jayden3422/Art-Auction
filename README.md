@@ -86,6 +86,7 @@ npm start               # Production
 |----------|---------|
 | `APP_PORT` | Express server port (default: 3000) |
 | `WS_PORT` | WebSocket server port (default: 3001) |
+| `TRUST_PROXY` | Express proxy trust setting for correct client IP detection behind reverse proxies (e.g. `1`, `true`, `loopback`) |
 | `MONGO_URL` | MongoDB connection string |
 | `JWT_SALT` | JWT signing secret |
 | `SITE_URL` | Public site URL for sitemap generation |
