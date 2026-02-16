@@ -46,6 +46,7 @@ export default {
         enterQuantity: "Please enter quantity!",
         productID: "Product ID",
         bid: "Bid",
+        loginToBid: "Login to Bid",
         bidderID: "Bidder ID",
         bidPrice: "Bid",
         time: "Time",

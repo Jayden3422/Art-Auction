@@ -40,6 +40,8 @@ import all from "./routers/all.js";
 import buyr from "./routers/buyr.js";
 import seller from "./routers/seller.js";
 import admin from "./routers/admin.js";
+import fs from 'fs';
+import { dynamicRender } from './middleware/dynamicRender.js';
 
 // 新增：引入 i18n
 import i18n from 'i18n';
@@ -65,6 +67,9 @@ i18n.configure({
   updateFiles: false, // 避免自动写文件，如果不需要
 });
 
+// Bot crawl logger (must be first to capture all requests)
+import { botLogger } from './middleware/botLogger.js';
+app.use(botLogger);
 // 使用 cookie-parser 中间件
 app.use(cookieParser());
 // Gzip compression for all responses
@@ -117,12 +122,21 @@ const requestLimiter = rateLimit({
 app.use(requestLimiter);
 
 // 以下为接口相关函数
-// 白名单，允许所有用户访问
-const whiteList = [
-    '/',
+const API_PREFIXES = ['/all', '/buyr', '/seller', '/admin'];
+const isApiRequestPath = (pathname) => API_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
+
+// API 白名单，允许所有用户访问
+const publicApiPaths = new Set([
+    '/all',
     '/all/isToken',
-    // SEO: public endpoints for crawlers
+    // SEO: public listing/detail endpoints for crawlers and anonymous users
     '/all/sitemap.xml',
+    '/all/getAllGoods',
+    '/all/getAllNear',
+    '/all/getAllSale',
+    '/all/getAllEnd',
+    '/all/getAllAn',
+    '/all/getDics',
     // 买家
     '/buyr',
     '/buyr/login',
@@ -134,49 +148,66 @@ const whiteList = [
     // 管理员
     '/admin',
     '/admin/login',
-];
+]);
+const publicGetOnlyPaths = new Set(['/all/getGood', '/all/getPriceList']);
 // SEO: prefix whitelist for GET routes with dynamic params
-const whiteListPrefixes = ['/all/getGood/'];
+const whiteListPrefixes = ['/all/getGood/', '/all/getPriceList/'];
+
 // 设置总体前置路由拦截
 app.use((req, res, next) => {
     // 处理优先发出的OPTIONS方法，返回200以便后面执行POST请求
     if (req.method.toLowerCase() === 'options') {
         res.sendStatus(200);
-    } else {
-        let info = {};
-        const isWhitelisted = whiteList.includes(req.url) || whiteListPrefixes.some(p => req.url.startsWith(p));
-        if (!isWhitelisted) {// 如果路径不包括白名单路径就进行token验证
-            verifyToken(salt, req.headers.token).then(async (resx) => {// 验证token是否正确
-                if(resx.Permission == 0) {
-                    info = await findPro('buyr_user', { "EMAIL": resx.EMAIL });
-                }else if(resx.Permission == 1) {
-                    info = await findPro('seller', { "EMAIL": resx.EMAIL });
-                }else if(resx.Permission == 2) {
-                    info = await findPro('admin', { "EMAIL": resx.EMAIL });
-                }
-                if(isFine(info).judge) {
-                    throw info.value;
-                }
-                if(info[0].PASS_SALT == req.headers.token) {
-                    next()// 正确就进行路由跳转
-                }else {
-                    throw resx;
-                }
-            }).catch(e => {// 不正确就返回401状态token无效
-                res.status(401).send('invalid token')
-            })
-        } else {// 如果路径在白名单或前缀白名单内就直接进行跳转
-            next()
-        }
+        return;
+    }
+    // Only protect API routes. Frontend HTML/static routes should stay public.
+    if (!isApiRequestPath(req.path)) {
+        next();
+        return;
+    }
+    let info = {};
+    const isGetRequest = req.method.toLowerCase() === 'get';
+    const isWhitelisted = publicApiPaths.has(req.path)
+        || (isGetRequest && (publicGetOnlyPaths.has(req.path) || whiteListPrefixes.some(p => req.path.startsWith(p))));
+
+    if (!isWhitelisted) {// 如果路径不包括白名单路径就进行token验证
+        verifyToken(salt, req.headers.token).then(async (resx) => {// 验证token是否正确
+            if(resx.Permission == 0) {
+                info = await findPro('buyr_user', { "EMAIL": resx.EMAIL });
+            }else if(resx.Permission == 1) {
+                info = await findPro('seller', { "EMAIL": resx.EMAIL });
+            }else if(resx.Permission == 2) {
+                info = await findPro('admin', { "EMAIL": resx.EMAIL });
+            }
+            if(isFine(info).judge) {
+                throw info.value;
+            }
+            if(info[0].PASS_SALT == req.headers.token) {
+                next()// 正确就进行路由跳转
+            }else {
+                throw resx;
+            }
+        }).catch(e => {// 不正确就返回401状态token无效
+            res.status(401).send('invalid token')
+        })
+    } else {// 如果路径在白名单或前缀白名单内就直接进行跳转
+        next()
     }
 })
+
+const frontendDistDir = path.join(__dirname, '../frontend/dist');
+const canServeFrontend = process.env.NODE_ENV === 'production' && fs.existsSync(frontendDistDir);
 
 // 拍卖时间结束后的操作
 if (process.env.NODE_ENV !== 'test') {
     final();
 }
 
-app.get('/', function (req, res) {
+app.get('/', function (req, res, next) {
+    if (canServeFrontend) {
+        next();
+        return;
+    }
     res.send(req.__('hello') + ' Express');
 })
 
@@ -185,9 +216,28 @@ app.use('/buyr', buyr);
 app.use('/seller', seller);
 app.use('/admin', admin);
 
+if (canServeFrontend) {
+    app.use(dynamicRender(frontendDistDir));
+    app.use(express.static(frontendDistDir, {
+        index: false,
+        maxAge: '1d'
+    }));
+    app.get('*', (req, res, next) => {
+        if (req.method !== 'GET' || isApiRequestPath(req.path) || path.extname(req.path)) {
+            next();
+            return;
+        }
+        res.sendFile(path.join(frontendDistDir, 'index.html'));
+    });
+}
+
 // 404 catch-all for unmatched API routes
 app.use((req, res) => {
-    res.status(404).json({ error: 'Not found', path: req.originalUrl });
+    if (isApiRequestPath(req.path)) {
+        res.status(404).json({ error: 'Not found', path: req.originalUrl });
+        return;
+    }
+    res.status(404).send('Not found');
 });
 
 // websocket

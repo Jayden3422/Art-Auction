@@ -10,11 +10,11 @@
             />
             <a-alert v-if="suc" :message="t('message.submitSuc')" type="success" show-icon id="msg"/>
             <div class="top">
-                <img :src="info.IMG_URL" :alt="info.NAME" class="left" />
+                <img :src="info.IMG_URL" :alt="info.NAME" class="left" width="640" height="640" />
                 <div class="right">
-                    <div class="title">
+                    <h1 class="title">
                         {{ info.NAME }}
-                    </div>
+                    </h1>
                     <div class="time">
                         {{ time.START_TIME }} ~ {{ time.END_TIME }}
                     </div>
@@ -85,7 +85,7 @@
                         </div>
                     </div>
                     <div class="info">
-                        <div class="tit">{{ $t('message.bidStarts') }}: ￥{{ info.UPSET_PRICE }}</div>
+                        <h2 class="tit">{{ $t('message.bidStarts') }}: ￥{{ info.UPSET_PRICE }}</h2>
                         <div class="intro">
                             {{ info.INTRODUCTION }}
                         </div>
@@ -132,13 +132,13 @@ import { fullDate } from "../../components/date";
 import { formatDate } from "../../components/day";
 import Timer from "../../components/Timer/Timer.vue";
 import router from "@/router";
-import { postAPI, deleteListAPI } from "../../utils/api";
+import { getAPI, deleteListAPI } from "../../utils/api";
 import { useStore } from 'vuex';
 import store from '@/store';
 import { useWebSocket } from '../../ws/hooks';
 import { AuditOutlined } from '@ant-design/icons-vue';
 import { useI18n } from 'vue-i18n';
-import { setMetaTag, setJsonLd, buildAuctionJsonLd } from '../../utils/seo';
+import { setMetaTag, setJsonLd, buildAuctionJsonLd, buildBreadcrumbJsonLd } from '../../utils/seo';
 export default {
     components: {
         Timer,
@@ -152,7 +152,7 @@ export default {
             info: {}
         });
         const getInfo = async () => {
-            var result = await postAPI('/all/getGood', {GOOD_ID: parseInt(goodID)});
+            var result = await getAPI(`/all/getGood/${parseInt(goodID)}`);
             if (result.status == 200) {
                 List.info = result.data;
             } else {
@@ -172,7 +172,14 @@ export default {
             setMetaTag('property', 'og:description', List.info.INTRODUCTION || '');
             setMetaTag('property', 'og:image', List.info.IMG_URL || '');
             setMetaTag('property', 'og:type', 'product');
-            setJsonLd(buildAuctionJsonLd(List.info));
+            setJsonLd([
+                buildAuctionJsonLd(List.info),
+                buildBreadcrumbJsonLd([
+                    { name: 'Home', path: '/home/auction' },
+                    { name: 'Auction Listings', path: '/home/auction' },
+                    { name: List.info.NAME, path: `/home/details?GOOD_ID=${List.info.GOOD_ID}` }
+                ])
+            ]);
         }
         var time = reactive({
             START_TIME: fullDate(List.info.START_TIME),
@@ -274,9 +281,7 @@ export default {
         }
         var isErr = ref(false);
         const getData = async () => {
-            const result = await postAPI("/all/getPriceList", {
-                GOOD_ID: goodID,
-            });
+            const result = await getAPI(`/all/getPriceList/${goodID}`);
             if (result.status == 200) {
                 data.res = result.data;
             } else {

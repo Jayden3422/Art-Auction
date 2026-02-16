@@ -1,16 +1,16 @@
 <template>
     <div>
         <div v-if="List.length != 0" class="goodsList">
-            <div v-for="(item, index) in List" class="card" @click="detail(index)">
-                <img :src="item.IMG_URL" :alt="item.NAME" loading="lazy" />
+            <div v-for="(item, index) in List" :key="item.GOOD_ID || index" class="card" @click="detail(index)">
+                <img :src="item.IMG_URL" :alt="item.NAME" loading="lazy" width="420" height="300" />
                 <div class="content">
                     <div class="title">
                         <div class="tit">{{ $t('message.bidStarts') }}: ￥{{ item.UPSET_PRICE }}</div>
                         <div class="count">{{ $t('message.quantity') }}: {{ item.COUNT }}</div>
                     </div>
-                    <div class="name">
-                        {{ item.NAME }}
-                    </div>
+                    <h3 class="name">
+                        <a :href="getDetailHref(item)" @click.stop.prevent="openDetail(item)">{{ item.NAME }}</a>
+                    </h3>
                     <div class="time">{{ timeList[index].START_TIME }} ~</div>
                     <div class="time">
                         {{ timeList[index].END_TIME }}
@@ -133,8 +133,7 @@ export default {
             });
         }
         // 打开详情页
-        function detail(index) {
-            var form = List[index]
+        function getDetailHref(form) {
             var routeData;
             if(props.permission.per == 0) {
             // 买家进入拍卖页
@@ -149,12 +148,20 @@ export default {
                     query: {GOOD_ID: form.GOOD_ID}
                 });
             }
-            window.open(routeData.href, "_blank");
+            return routeData.href;
+        }
+        function openDetail(form) {
+            window.open(getDetailHref(form), "_blank");
+        }
+        function detail(index) {
+            openDetail(List[index]);
         }
         return {
             List,
             timeList,
             detail,
+            getDetailHref,
+            openDetail,
             t
         };
     },

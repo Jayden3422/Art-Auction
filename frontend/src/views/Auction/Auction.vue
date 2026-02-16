@@ -1,5 +1,6 @@
 <template>
     <div>
+        <h1 class="pageTitle">Auction Listings</h1>
         <a-alert
             v-if="isErr"
             :message="t('message.dataFail')"
@@ -61,9 +62,22 @@ export default {
     },
     setup() {
         const { t } = useI18n();
+
+        // Auth-optional: anonymous users get buyer view (per=0)
+        const token = Cookie.get('token');
+        let decodedPermission = 0;
+        let sellerId = '';
+        if (token) {
+            try {
+                decodedPermission = jwtDecode(token).Permission;
+                sellerId = store.state.userForm.SELLER_ID || '';
+            } catch (e) {
+                // Invalid token — treat as anonymous buyer
+            }
+        }
         var permission = reactive({
-            per: jwtDecode(Cookie.get('token')).Permission,
-            SELLER_ID: store.state.userForm.SELLER_ID
+            per: decodedPermission,
+            SELLER_ID: sellerId
         });
         // 弹窗
         var isErr = ref(false);

@@ -87,8 +87,13 @@ all.post('/getGood', jsonParser, async (req, res) => {
 
 // SEO: GET endpoint for item detail (crawlable)
 all.get('/getGood/:id', async (req, res) => {
+    const goodId = parseInt(req.params.id, 10);
+    if (Number.isNaN(goodId)) {
+        res.status(400).send('Invalid GOOD_ID');
+        return;
+    }
     try {
-        let good = await findPro("goods", { GOOD_ID: parseInt(req.params.id) });
+        let good = await findPro("goods", { GOOD_ID: goodId });
         if(isFine(good).judge) {
             res.status(404).send('Item not found');
             return;
@@ -181,6 +186,24 @@ all.post('/getPriceList', jsonParser, async (req, res) => {
             throw priceList.value;
         }
         res.send(priceList);
+    }catch(e) {
+        res.status(500).send('Failed to obtain')
+    }
+})
+
+// SEO: GET endpoint for price list (crawlable, public)
+all.get('/getPriceList/:id', async (req, res) => {
+    var GOOD_ID = parseInt(req.params.id, 10);
+    if (Number.isNaN(GOOD_ID)) {
+        res.status(400).send('Invalid GOOD_ID');
+        return;
+    }
+    try {
+        let priceList = await findSort("price_info", {GOOD_ID: GOOD_ID}, { TIME: -1 });
+        if(isFine(priceList).judge) {
+            throw priceList.value;
+        }
+        res.json(priceList);
     }catch(e) {
         res.status(500).send('Failed to obtain')
     }

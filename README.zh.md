@@ -17,6 +17,7 @@
   - [数据统计与 PDF 导出](#数据统计与-pdf-导出)
 - [SEO 工程](#seo-工程)
   - [挑战：Vue SPA 的 SEO 问题](#挑战vue-spa-的-seo-问题)
+  - [近期 SEO 实现更新（2026-02）](#近期-seo-实现更新2026-02)
   - [架构总览](#架构总览)
   - [后端 SEO 基础设施](#后端-seo-基础设施)
   - [前端动态 Meta 管理](#前端动态-meta-管理)
@@ -76,7 +77,8 @@
 cd backend
 cp .env.sample .env     # 编辑 MongoDB、JWT、OSS 及站点 URL 配置
 npm install
-node server.js
+npm run dev             # 开发环境
+npm start               # 生产运行
 ```
 
 **环境变量**（`.env`）：
@@ -172,6 +174,18 @@ node data/liujinqi.js
 单页应用天生不利于搜索引擎抓取。整个 UI 由客户端 JavaScript 渲染，爬虫在初次加载时只能看到一个空的 `<div id="app">`。传统方案是迁移到 SSR（Nuxt.js）或 SSG，但这需要大规模的架构重构。
 
 **我的方案：** 在不迁移 Vue CLI 的前提下，通过后端基础设施、客户端动态 Meta 管理、结构化数据注入和选择性预渲染相结合，构建一套多层级 SEO 体系。
+
+### 近期 SEO 实现更新（2026-02）
+
+- 在 `backend/app.js` 中按“请求方法 + 路径”细化白名单：公开 SEO 路由放行，受保护 API 继续鉴权。
+- 新增 `GET /all/getPriceList/:id`，与 `GET /all/getGood/:id` 配对，保证详情数据可被爬虫读取。
+- 新增 Bot 日志中间件（`backend/middleware/botLogger.js`），用于观测爬虫行为。
+- 新增动态渲染中间件 + 生产静态资源兜底（`backend/middleware/dynamicRender.js`）。
+- 公开内容路由移除登录依赖，`Home.vue` / `Auction.vue` 对匿名会话做了容错。
+- 详情页数据读取由 POST 改为 GET。
+- 增加 `buildBreadcrumbJsonLd`，详情页注入 BreadcrumbList JSON-LD。
+- `GoodsList` 改为可抓取链接，同时补充图片尺寸与语义化标题层级。
+- 增加 SEO 健康检查脚本：在 `backend` 下执行 `npm run seo:health`。
 
 ### 架构总览
 
@@ -301,6 +315,15 @@ if (isProduction) {
 ```bash
 cd backend
 npm test
+```
+
+SEO 健康检查：
+
+```bash
+cd backend
+npm run seo:health
+# 可选：开启前端路由检查（需启用生产静态资源服务）
+# SEO_CHECK_FRONTEND=1 npm run seo:health
 ```
 
 所有测试文件位于 `backend/__tests__/`。

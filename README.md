@@ -17,6 +17,7 @@ A full-stack online art auction platform built with **Vue 3** and **Express.js**
   - [Data Statistics & PDF Export](#data-statistics--pdf-export)
 - [SEO Engineering](#seo-engineering)
   - [Challenge: SEO for a Vue SPA](#challenge-seo-for-a-vue-spa)
+  - [Recent SEO Implementation Updates (2026-02)](#recent-seo-implementation-updates-2026-02)
   - [Architecture Overview](#architecture-overview)
   - [Backend SEO Infrastructure](#backend-seo-infrastructure)
   - [Frontend Dynamic Meta Management](#frontend-dynamic-meta-management)
@@ -76,7 +77,8 @@ An online art auction platform that provides a secure and efficient space for ar
 cd backend
 cp .env.sample .env     # Edit with your MongoDB, JWT, OSS, and site URL settings
 npm install
-node server.js
+npm run dev             # Development
+npm start               # Production
 ```
 
 **Environment variables** (`.env`):
@@ -172,6 +174,18 @@ Uses **ECharts** to render line charts, pie charts, and histograms for auction t
 Single-page applications are inherently difficult for search engines to crawl. The entire UI is rendered client-side via JavaScript, meaning crawlers see an empty `<div id="app">` on initial page load. Traditional solutions involve migrating to SSR (Nuxt.js) or SSG, which require significant architectural changes.
 
 **My approach:** Implement a multi-layer SEO system *without* migrating away from Vue CLI, using a combination of backend infrastructure, client-side dynamic meta management, structured data injection, and selective prerendering.
+
+### Recent SEO Implementation Updates (2026-02)
+
+- Public listing/detail endpoints are explicitly whitelisted by method/path in `backend/app.js` so SEO routes remain open while protected APIs still require tokens.
+- Added `GET /all/getPriceList/:id` to pair with `GET /all/getGood/:id` for crawler-accessible detail data.
+- Added bot logger middleware (`backend/middleware/botLogger.js`) for crawl observability.
+- Added dynamic rendering middleware + production static serving fallback (`backend/middleware/dynamicRender.js`) for bot-friendly HTML delivery.
+- Removed auth requirement from public content routes and made `Home.vue` / `Auction.vue` resilient to anonymous sessions.
+- Switched detail pages from POST to GET for item and price-list retrieval.
+- Added `buildBreadcrumbJsonLd` and injected BreadcrumbList JSON-LD on detail pages.
+- Added crawlable `<a>` links in goods cards, plus image width/height and semantic heading hierarchy for stronger crawl/render signals.
+- Added SEO health-check script: `npm run seo:health` in `backend`.
 
 ### Architecture Overview
 
@@ -301,6 +315,15 @@ Backend uses **Jest** + **supertest**:
 ```bash
 cd backend
 npm test
+```
+
+SEO surface checks:
+
+```bash
+cd backend
+npm run seo:health
+# Optional frontend route checks (requires production static serving):
+# SEO_CHECK_FRONTEND=1 npm run seo:health
 ```
 
 All test files are in `backend/__tests__/`.

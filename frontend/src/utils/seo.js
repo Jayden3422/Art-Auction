@@ -195,6 +195,33 @@ export function buildOrganizationJsonLd() {
 }
 
 /**
+ * Build BreadcrumbList JSON-LD structured data
+ * @param {Array} items - [{ name: string, path?: string, url?: string }]
+ */
+export function buildBreadcrumbJsonLd(items = []) {
+    const origin = window.location.origin
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        'itemListElement': items
+            .filter(item => item && item.name)
+            .map((item, index) => {
+                const href = item.url || item.path
+                const fullUrl = href ? new URL(href, origin).toString() : ''
+                const listItem = {
+                    '@type': 'ListItem',
+                    'position': index + 1,
+                    'name': item.name
+                }
+                if (fullUrl) {
+                    listItem.item = fullUrl
+                }
+                return listItem
+            })
+    }
+}
+
+/**
  * Build ItemList JSON-LD structured data for auction listing pages
  * @param {Array} items - Array of goods objects
  */

@@ -46,6 +46,7 @@ export default{
         enterQuantity: "请输入数量！",
         productID: "商品ID",
         bid: "竞拍",
+        loginToBid: "登录竞拍",
         bidderID: "出价人ID",
         bidPrice: "出价",
         time: "时间",

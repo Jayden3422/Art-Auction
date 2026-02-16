@@ -34,6 +34,7 @@
   color: #808080;
 }
 .goodsList .card .content .name {
+  margin: 0;
   font-size: 1.125rem;
   text-overflow: -o-ellipsis-lastline;
   overflow: hidden;
@@ -47,6 +48,13 @@
   line-clamp: 2;
   -webkit-box-orient: vertical;
   /* 设置或检索伸缩盒对象的子元素的排列方式 盒子中内容竖直排列 */
+}
+.goodsList .card .content .name a {
+  color: inherit;
+  text-decoration: none;
+}
+.goodsList .card .content .name a:hover {
+  text-decoration: underline;
 }
 .goodsList .card .content .time {
   margin-left: 0.3125rem;

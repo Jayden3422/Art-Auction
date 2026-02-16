@@ -4,6 +4,10 @@
   width: 80vw;
   z-index: 9;
 }
+.pageTitle {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+}
 .addBtn {
   position: absolute;
   right: 0;

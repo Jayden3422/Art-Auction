@@ -36,7 +36,6 @@ const routes = [
     name: 'home',
     component: () => import('../views/Home/Home.vue'),
     meta: {
-        isAuth: true,
         pid: 0
     },
     children: [
@@ -48,7 +47,6 @@ const routes = [
             title: "Auction Listings - Jayden Art Auction",
             description: "Browse all auction items including upcoming, live, and ended art auctions.",
             keywords: "auction listings,live auction,art bidding,paintings,ceramics,sculptures",
-            isAuth: true,
             pid: 1
         }
       },
@@ -59,7 +57,6 @@ const routes = [
             title: "Item Details - Jayden Art Auction",
             description: "View artwork details and place your bid online.",
             keywords: "auction item,art bidding,place bid",
-            isAuth: true,
             pid: 11
         }
       },
@@ -70,7 +67,6 @@ const routes = [
             title: "Product Details - Jayden Art Auction",
             description: "View product details and auction status.",
             keywords: "product details,auction status,seller management",
-            isAuth: true,
             pid: 12
         }
       },

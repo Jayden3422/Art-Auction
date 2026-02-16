@@ -1,5 +1,6 @@
 <template>
   <a-layout id="components-layout-demo-custom-trigger">
+    <h1 class="srOnly">Jayden Art Auction</h1>
     <a-layout-sider v-model:collapsed="collapsed" :trigger="null" collapsible>
       <div class="logo">
         <span>Jayden</span>
@@ -24,7 +25,8 @@
           @click="() => (collapsed = !collapsed)"
         />
         <menu-fold-outlined v-else class="trigger" @click="() => (collapsed = !collapsed)" />
-        <a-button @click="out">{{ $t('message.loginOut') }}</a-button>
+        <a-button v-if="isLoggedIn" @click="out">{{ $t('message.loginOut') }}</a-button>
+        <router-link v-else to="/login"><a-button type="primary">{{ $t('message.login') }}</a-button></router-link>
         <a-button @click="switchLanguage">中文/English</a-button>
       </a-layout-header>
       <a-layout-content
@@ -57,7 +59,20 @@ export default defineComponent({
   async setup() {
     const { t } = useI18n();
     const store = useStore();
-    var pids = jwtDecode(Cookie.get('token')).pids;
+
+    // Auth-optional: gracefully handle missing token for anonymous users
+    const token = Cookie.get('token');
+    let pids = [];
+    let isLoggedIn = false;
+    if (token) {
+      try {
+        pids = jwtDecode(token).pids || [];
+        isLoggedIn = true;
+      } catch (e) {
+        // Invalid token — treat as anonymous
+      }
+    }
+
     var list = reactive({
       routesList: []
     })
@@ -66,21 +81,29 @@ export default defineComponent({
       Cookie.remove("token");
       router.go(0);
     }
-    
+
     const { locale } = useI18n()
     const switchLanguage = () => {
       locale.value = locale.value === 'en' ? 'zh' : 'en'
     }
-    await getAPI("/all/getDics").then(res => {
+    try {
+      const res = await getAPI("/all/getDics");
       store.commit("setClassList", JSON.parse(res.data[1].VALUE));
-      list.routesList = JSON.parse(res.data[0].VALUE).filter(r => pids.includes(r.icon));
-    }).catch(e => {
-      message.error(t('message.dictFail'));
-    })
+      if (isLoggedIn) {
+        list.routesList = JSON.parse(res.data[0].VALUE).filter(r => pids.includes(r.icon));
+      } else {
+        // Anonymous users: show only auction listing
+        list.routesList = [{ path: '/home/auction', title: 'Auctions', icon: 1 }];
+      }
+    } catch (e) {
+      // Fallback for anonymous or error
+      list.routesList = [{ path: '/home/auction', title: 'Auctions', icon: 1 }];
+    }
     return {
       ...toRefs(list),
       out,
-      selectedKeys: ref([router.currentRoute.value.matched[1].path]),
+      isLoggedIn,
+      selectedKeys: ref([router.currentRoute.value.matched[1]?.path || '/home/auction']),
       collapsed: ref(false),// 是否关闭侧边栏
       switchLanguage,
       t
@@ -90,4 +113,14 @@ export default defineComponent({
 </script>
 <style scoped>
   @import url('./Home.css');
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
 </style>
