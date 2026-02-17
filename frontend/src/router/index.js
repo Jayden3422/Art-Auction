@@ -1,5 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
+function resolveCanonicalDetailId(routeLike) {
+  const rawValue = routeLike?.params?.id ?? routeLike?.query?.GOOD_ID ?? routeLike?.query?.goodId ?? routeLike?.query?.id
+  const goodId = Number(rawValue)
+  if (!Number.isInteger(goodId) || goodId <= 0) {
+    return null
+  }
+  return goodId
+}
+
 const routes = [
   {
     path: '',
@@ -42,7 +51,6 @@ const routes = [
       {
         path: 'auction',
         name: 'auction',
-        alias: ['/home/auction/upcoming', '/home/auction/live', '/home/auction/ended'],
         component: () => import('../views/Auction/Auction.vue'),
         meta: {
             title: "Auction Listings - Jayden Art Auction",
@@ -52,8 +60,42 @@ const routes = [
         }
       },
       {
-        path: 'detail/:id(\\d+)?',
-        component: () => import('../views/Detail/Detail.vue'),
+        path: 'auction/upcoming',
+        name: 'auction-upcoming',
+        component: () => import('../views/Auction/Auction.vue'),
+        meta: {
+            title: "Upcoming Art Auctions - Jayden Art Auction",
+            description: "Preview upcoming art auctions before bidding starts.",
+            keywords: "upcoming auction,art lots preview,online bidding",
+            pid: 1
+        }
+      },
+      {
+        path: 'auction/live',
+        name: 'auction-live',
+        component: () => import('../views/Auction/Auction.vue'),
+        meta: {
+            title: "Live Art Auctions - Jayden Art Auction",
+            description: "Join live art auctions and place bids in real time.",
+            keywords: "live auction,real-time bidding,art auction",
+            pid: 1
+        }
+      },
+      {
+        path: 'auction/ended',
+        name: 'auction-ended',
+        component: () => import('../views/Auction/Auction.vue'),
+        meta: {
+            title: "Ended Art Auctions - Jayden Art Auction",
+            description: "Browse recently ended auctions and final results.",
+            keywords: "ended auction,auction result,art auction history",
+            pid: 1
+        }
+      },
+      {
+        path: 'detail/:id(\\d+)',
+        name: 'detail',
+        component: () => import('../views/Detail/DetailEntry.vue'),
         meta: {
             title: "Item Details - Jayden Art Auction",
             description: "View artwork details and place your bid online.",
@@ -62,13 +104,27 @@ const routes = [
         }
       },
       {
-        path: 'details/:id(\\d+)?',
-        component: () => import('../views/Detail/DetailS.vue'),
-        meta: {
-            title: "Product Details - Jayden Art Auction",
-            description: "View product details and auction status.",
-            keywords: "product details,auction status,seller management",
-            pid: 12
+        path: 'detail',
+        redirect: (to) => {
+            const goodId = resolveCanonicalDetailId(to)
+            if (!goodId) {
+                return { name: 'NotFound', params: { pathMatch: ['home', 'detail'] } }
+            }
+            return `/home/detail/${goodId}`
+        }
+      },
+      {
+        path: 'details/:id(\\d+)',
+        redirect: (to) => `/home/detail/${to.params.id}`
+      },
+      {
+        path: 'details',
+        redirect: (to) => {
+            const goodId = resolveCanonicalDetailId(to)
+            if (!goodId) {
+                return { name: 'NotFound', params: { pathMatch: ['home', 'details'] } }
+            }
+            return `/home/detail/${goodId}`
         }
       },
       {

@@ -1,6 +1,11 @@
 const SITE_NAME = 'Jayden Art Auction'
 const DEFAULT_DESCRIPTION = 'Jayden Art Auction - Professional online art auction platform featuring paintings, calligraphy, ceramics, sculptures, metalwork, and rare stones.'
 const DEFAULT_KEYWORDS = 'art auction,online bidding,painting auction,ceramic auction,sculpture auction,art trading'
+const AUCTION_CATEGORY_BY_STATE = {
+    '0': 'upcoming',
+    '1': 'live',
+    '2': 'ended'
+}
 
 /**
  * Set or update a meta tag dynamically
@@ -38,6 +43,41 @@ export function setCanonicalUrl(path) {
     }
 }
 
+function parsePositiveGoodId(route) {
+    const rawValue = route?.params?.id ?? route?.query?.GOOD_ID ?? route?.query?.goodId ?? route?.query?.id
+    const goodId = Number(rawValue)
+    if (!Number.isInteger(goodId) || goodId <= 0) {
+        return null
+    }
+    return goodId
+}
+
+function normalizeCanonicalPath(route) {
+    const pathname = route?.path || '/'
+    if (pathname === '/home/auction') {
+        const queryCategory = String(route?.query?.category || '').toLowerCase()
+        if (['upcoming', 'live', 'ended'].includes(queryCategory)) {
+            return `/home/auction/${queryCategory}`
+        }
+        const byState = AUCTION_CATEGORY_BY_STATE[String(route?.query?.state || '')]
+        if (byState) {
+            return `/home/auction/${byState}`
+        }
+    }
+
+    const detailsMatch = pathname.match(/^\/home\/details\/(\d+)$/)
+    if (detailsMatch) {
+        return `/home/detail/${detailsMatch[1]}`
+    }
+    if (pathname === '/home/detail' || pathname === '/home/details') {
+        const goodId = parsePositiveGoodId(route)
+        if (goodId) {
+            return `/home/detail/${goodId}`
+        }
+    }
+    return pathname
+}
+
 /**
  * Set or update hreflang link elements for en/zh + x-default
  * @param {string} path - Current route path (without query)
@@ -64,21 +104,21 @@ export function setHreflang(path) {
 /**
  * Batch update page SEO info based on route meta
  * @param {object} meta - Route meta object
- * @param {string} fullPath - Current route full path (with query)
- * @param {string} path - Current route path (without query)
+ * @param {object} route - Vue router target route
  */
-export function updateRouteMeta(meta, fullPath, path) {
+export function updateRouteMeta(meta, route) {
     const title = meta.title || SITE_NAME
     const description = meta.description || DEFAULT_DESCRIPTION
     const keywords = meta.keywords || DEFAULT_KEYWORDS
+    const canonicalPath = normalizeCanonicalPath(route)
 
     document.title = title
     setMetaTag('name', 'description', description)
     setMetaTag('name', 'keywords', keywords)
     setMetaTag('property', 'og:title', title)
     setMetaTag('property', 'og:description', description)
-    if (fullPath) setCanonicalUrl(fullPath)
-    if (path) setHreflang(path)
+    if (canonicalPath) setCanonicalUrl(canonicalPath)
+    if (canonicalPath) setHreflang(canonicalPath)
 }
 
 /**

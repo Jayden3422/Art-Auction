@@ -5,7 +5,7 @@
                 <img :src="item.IMG_URL" :alt="item.NAME" loading="lazy" width="420" height="300" />
                 <div class="content">
                     <div class="title">
-                        <div class="tit">{{ $t('message.bidStarts') }}: ￥{{ item.UPSET_PRICE }}</div>
+                        <div class="tit">{{ $t('message.bidStarts') }}: &yen;{{ item.UPSET_PRICE }}</div>
                         <div class="count">{{ $t('message.quantity') }}: {{ item.COUNT }}</div>
                     </div>
                     <h3 class="name">
@@ -31,9 +31,10 @@
 import { reactive } from "@vue/reactivity";
 import { fullDate } from "../../components/date";
 import { getAPI, postAPI } from "../../utils/api";
-import router from '@/router';
-import { useI18n } from 'vue-i18n';
-import { setJsonLd, buildItemListJsonLd } from '../../utils/seo';
+import router from "@/router";
+import { useI18n } from "vue-i18n";
+import { setJsonLd, buildItemListJsonLd } from "../../utils/seo";
+
 export default {
     props: [
         "state",
@@ -42,118 +43,92 @@ export default {
     emits: ["isErr"],
     async setup(props, context) {
         const { t } = useI18n();
-        // 获取数据
-        var List = reactive([]);
-        if(props.permission.per == 1) {
-        // 如果是卖家
-            var sellerForm = {
+        let List = reactive([]);
+
+        if (props.permission.per == 1) {
+            const sellerForm = {
                 UPLOADER_ID: props.permission.SELLER_ID
-            }
+            };
             if (props.state == "0") {
-                async function getN() {
-                    await postAPI("/seller/getAllNear", sellerForm).then((res) => {
-                        if (res.status == 200) {
-                            List = reactive(res.data);
-                        } else {
-                            context.emit("isErr");
-                        }
-                    });
-                }
-                await getN();
+                await postAPI("/seller/getAllNear", sellerForm).then((res) => {
+                    if (res.status == 200) {
+                        List = reactive(res.data);
+                    } else {
+                        context.emit("isErr");
+                    }
+                });
             } else if (props.state == "1") {
-                async function getS() {
-                    await postAPI("/seller/getAllSale", sellerForm).then((res) => {
-                        if (res.status == 200) {
-                            List = reactive(res.data);
-                        } else {
-                            context.emit("isErr");
-                        }
-                    });
-                }
-                await getS();
+                await postAPI("/seller/getAllSale", sellerForm).then((res) => {
+                    if (res.status == 200) {
+                        List = reactive(res.data);
+                    } else {
+                        context.emit("isErr");
+                    }
+                });
             } else {
-                async function getE() {
-                    await postAPI("/seller/getAllEnd", sellerForm).then((res) => {
-                        if (res.status == 200) {
-                            List = reactive(res.data);
-                        } else {
-                            context.emit("isErr");
-                        }
-                    });
-                }
-                await getE();
+                await postAPI("/seller/getAllEnd", sellerForm).then((res) => {
+                    if (res.status == 200) {
+                        List = reactive(res.data);
+                    } else {
+                        context.emit("isErr");
+                    }
+                });
             }
-        }else {
-            // 如果是买家或者管理员
+        } else {
             if (props.state == "0") {
-                async function getN() {
-                    await getAPI("/all/getAllNear").then((res) => {
-                        if (res.status == 200) {
-                            List = reactive(res.data);
-                        } else {
-                            context.emit("isErr");
-                        }
-                    });
-                }
-                await getN();
+                await getAPI("/all/getAllNear").then((res) => {
+                    if (res.status == 200) {
+                        List = reactive(res.data);
+                    } else {
+                        context.emit("isErr");
+                    }
+                });
             } else if (props.state == "1") {
-                async function getS() {
-                    await getAPI("/all/getAllSale").then((res) => {
-                        if (res.status == 200) {
-                            List = reactive(res.data);
-                        } else {
-                            context.emit("isErr");
-                        }
-                    });
-                }
-                await getS();
+                await getAPI("/all/getAllSale").then((res) => {
+                    if (res.status == 200) {
+                        List = reactive(res.data);
+                    } else {
+                        context.emit("isErr");
+                    }
+                });
             } else {
-                async function getE() {
-                    await getAPI("/all/getAllEnd").then((res) => {
-                        if (res.status == 200) {
-                            List = reactive(res.data);
-                        } else {
-                            context.emit("isErr");
-                        }
-                    });
-                }
-                await getE();
+                await getAPI("/all/getAllEnd").then((res) => {
+                    if (res.status == 200) {
+                        List = reactive(res.data);
+                    } else {
+                        context.emit("isErr");
+                    }
+                });
             }
         }
-        // SEO: inject ItemList structured data for listing page
+
         if (List.length > 0) {
             setJsonLd(buildItemListJsonLd(List));
         }
-        // 处理时间后的数组
-        var timeList = reactive([]);
+
+        const timeList = reactive([]);
         for (let i = 0; i < List.length; i++) {
             timeList.push({
                 START_TIME: fullDate(List[i].START_TIME),
-                END_TIME: fullDate(List[i].END_TIME),
+                END_TIME: fullDate(List[i].END_TIME)
             });
         }
-        // 打开详情页
+
         function getDetailHref(form) {
-            var routeData;
-            if(props.permission.per == 0) {
-            // 买家进入拍卖页
-                routeData = router.resolve({
-                    path: `/home/detail/${form.GOOD_ID}`
-                });
-            }else {
-            // 卖家和管理员进入详情页
-                routeData = router.resolve({
-                    path: `/home/details/${form.GOOD_ID}`
-                });
-            }
+            const routeData = router.resolve({
+                path: `/home/detail/${form.GOOD_ID}`
+            });
             return routeData.href;
         }
+
         function openDetail(form) {
             window.open(getDetailHref(form), "_blank");
         }
+
         function detail(index) {
             openDetail(List[index]);
         }
+
         return {
             List,
             timeList,
@@ -162,7 +137,7 @@ export default {
             openDetail,
             t
         };
-    },
+    }
 };
 </script>
 

@@ -26,15 +26,13 @@ app.use(i18n).use(store).use(router).use(Antd).mount('#app')
 const PUBLIC_CONTENT_PATHS = new Set([
     '/home',
     '/home/auction',
-    '/home/detail',
-    '/home/details'
+    '/home/detail'
 ]);
 
 function isPublicContentPath(pathname) {
     return PUBLIC_CONTENT_PATHS.has(pathname)
         || pathname.startsWith('/home/auction/')
-        || pathname.startsWith('/home/detail/')
-        || pathname.startsWith('/home/details/');
+        || pathname.startsWith('/home/detail/');
 }
 
 router.beforeEach(async (to, from, next) => {
@@ -47,7 +45,7 @@ router.beforeEach(async (to, from, next) => {
         loadingBar.style.display = 'block'
     }
 
-    updateRouteMeta(to.meta, to.fullPath, to.path);
+    updateRouteMeta(to.meta, to);
 
     if (to.path === '/home') {
         next({ name: 'auction' });

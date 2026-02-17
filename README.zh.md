@@ -17,10 +17,11 @@
   - [数据统计与 PDF 导出](#数据统计与-pdf-导出)
 - [SEO 工程](#seo-工程)
   - [SEO 架构](#seo-架构)
-  - [公开可抓取页面（P0）](#公开可抓取页面p0)
-  - [Sitemap 与 Robots 一致性（P0）](#sitemap-与-robots-一致性p0)
-  - [SSR 与预渲染覆盖（P1）](#ssr-与预渲染覆盖p1)
-  - [SEO CI 门禁（P1）](#seo-ci-门禁p1)
+  - [公开可抓取页面](#公开可抓取页面)
+  - [Sitemap 与 Robots 一致性](#sitemap-与-robots-一致性)
+  - [SSR 与预渲染覆盖](#ssr-与预渲染覆盖)
+  - [SEO CI 门禁](#seo-ci-门禁)
+  - [Search Console Monitor](#search-console-monitor)
 - [测试](#测试)
 - [系统架构](#系统架构)
 - [功能模块](#功能模块)
@@ -172,6 +173,8 @@ node data/liujinqi.js
 
 - **面向爬虫的服务端渲染：** `backend/middleware/seoRender.js` 为关键落地路由返回完整 HTML。
 - **SPA 动态 Meta 管理：** `frontend/src/utils/seo.js` 在前端路由切换时更新 title、meta、canonical、hreflang。
+- **URL 规范化统一：** 详情页仅保留 `/home/detail/:id` 作为规范 URL；历史写法（`/home/detail?GOOD_ID=...`、`/home/details/:id`、`/home/details?GOOD_ID=...`）统一 `301` 到规范路径。
+- **前端路由状态码收敛：** 生产环境仅已知 SPA 路由返回 `index.html`，未知前端路径返回真实 `404`，避免软 404。
 - **构建期预渲染：** `frontend/vue.config.js` 在生产构建时预渲染 `/login` 和 `/signin`。
 - **CI 强制门禁：** `.github/workflows/seo-gate.yml` 同时执行结构化 SEO 校验和 Lighthouse CI。
 
@@ -191,6 +194,9 @@ node data/liujinqi.js
   - `/home/auction/live`
   - `/home/auction/ended`
   - `/home/detail/:id`
+- 前端路由提供可直接承接 SERP 人类流量的真实入口：
+  - `/home/auction/upcoming`、`/home/auction/live`、`/home/auction/ended`
+  - `/home/detail/:id`
 - 可通过 `?__seo=1`（或请求头 `x-seo-render: 1`）强制输出 SEO HTML，便于验证与调试。
 
 ### Sitemap 与 Robots 一致性
@@ -203,7 +209,8 @@ node data/liujinqi.js
   - 列表页：`/home/auction`、`/home/auction/upcoming`、`/home/auction/live`、`/home/auction/ended`
   - 详情页：来自活跃库存的 `/home/detail/:id`，并支持附加 `SEO_HOT_DETAIL_IDS`
   - `hreflang` 变体（`en`、`zh`、`x-default`）和可用时的 `lastmod`。
-- 不存在的详情页会返回真实 `404`（非 soft-404）。
+- 不存在的详情页会返回真实 `404`。
+- 生产环境下未知前端路由也返回真实 `404`（避免 SPA 壳页 `200` 导致 soft-404）。
 
 ### SSR 与预渲染覆盖
 
@@ -221,16 +228,43 @@ node data/liujinqi.js
   - robots 可访问且 sitemap 指令为绝对 URL
   - sitemap 的 `<loc>` 为绝对 URL，且包含关键列表/分类路由
   - 重定向跳转次数限制与 `404` 探测行为
+  - 历史详情/query URL 到 `/home/detail/:id` 的 canonical 重定向行为
+  - 未知前端路由的状态码（必须是 `404`）
   - 列表页/分类页/详情页的 JSON-LD 存在性与 `schema.org` 有效性。
 - Lighthouse CI 配置：`.lighthouserc.json`
   - 审计 URL 包含 `/login`、`/signin` 和 SEO 渲染的拍卖路由
   - 强制阈值：`categories:seo >= 0.9`。
+- PR 可视化与阻断：
+  - 工作流会上传 `seo-ci.log` 与 `lhci.log` artifact
+  - 在 Job Summary 输出结构化报告
+  - 在 PR 下自动创建/更新固定评论，展示 SEO 与 Lighthouse 结果
+  - 任一门禁失败都会直接阻断合并
 
 本地检查：
 
 ```bash
 cd backend
 npm run seo:ci
+```
+
+### Search Console Monitor
+
+- Workflow: `.github/workflows/search-console-monitor.yml`（每日定时 + 手动触发）
+- Script: `backend/scripts/search-console-monitor.js`
+  - 基于 URL Inspection API 检查 sitemap 中 URL 的索引状态
+  - 重点监控 `Soft 404` 与 `Duplicate without user-selected canonical`
+  - 自动输出 Markdown 报告并在超过阈值时让 workflow 失败
+- GitHub Actions 必需配置：
+  - `secrets.GSC_SERVICE_ACCOUNT_JSON`（服务账号 JSON；该账号需具备 Search Console 属性权限）
+  - `secrets.GSC_PROPERTY_URI`（例如 `sc-domain:example.com` 或 `https://example.com/`）
+  - `vars.SITE_URL`（线上站点 URL，用于拼接 `/all/sitemap.xml`）
+  - 可选：`vars.GSC_MONITOR_MAX_URLS`、`vars.GSC_SOFT404_THRESHOLD`、`vars.GSC_DUPLICATE_THRESHOLD`、`vars.GSC_SITEMAP_URL`
+
+本地运行：
+
+```bash
+cd backend
+npm run seo:gsc-monitor
 ```
 
 ---

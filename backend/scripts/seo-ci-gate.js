@@ -28,6 +28,14 @@ function asAbsoluteUrl(input, fallbackBase) {
     }
 }
 
+function samePathname(urlA, urlB) {
+    try {
+        return new URL(urlA).pathname === new URL(urlB).pathname;
+    } catch (error) {
+        return false;
+    }
+}
+
 async function fetchText(targetUrl, init = {}) {
     const headers = {
         'user-agent': botUserAgent,
@@ -140,6 +148,68 @@ async function checkRedirectsAnd404(locs) {
         fail('404 probe', `expected 404 for ${probePath}, got ${probeRes.status}`);
     } else {
         pass('404 probe', `${probePath} -> 404`);
+    }
+
+    const unknownPath = '/home/seo-route-should-404?__seo=1';
+    const unknownUrl = `${baseUrl}${unknownPath}`;
+    const { res: unknownRes } = await fetchText(unknownUrl, { redirect: 'manual' });
+    if (unknownRes.status !== 404) {
+        fail('404 probe', `expected 404 for ${unknownPath}, got ${unknownRes.status}`);
+    } else {
+        pass('404 probe', `${unknownPath} -> 404`);
+    }
+
+    const detailUrl = locs.find((loc) => {
+        try {
+            return new URL(loc).pathname.startsWith('/home/detail/');
+        } catch (error) {
+            return false;
+        }
+    });
+
+    if (detailUrl) {
+        const canonical = new URL(detailUrl);
+        const legacyTargets = [
+            `${baseUrl}/home/detail?GOOD_ID=${canonical.pathname.split('/').pop()}`,
+            `${baseUrl}/home/details/${canonical.pathname.split('/').pop()}`,
+            `${baseUrl}/home/details?GOOD_ID=${canonical.pathname.split('/').pop()}`
+        ];
+
+        for (const source of legacyTargets) {
+            const { res } = await fetchText(source, { redirect: 'manual' });
+            if (res.status !== 301) {
+                fail('canonical redirect', `${source} should return 301, got ${res.status}`);
+                continue;
+            }
+            const location = res.headers.get('location');
+            const next = asAbsoluteUrl(location || '', source);
+            if (!next || !samePathname(next, canonical.toString())) {
+                fail('canonical redirect', `${source} should point to ${canonical.pathname}, got ${location || '(none)'}`);
+                continue;
+            }
+            pass('canonical redirect', `${source} -> ${canonical.pathname}`);
+        }
+    } else {
+        warn('canonical redirect', 'no detail URL found in sitemap; skipping legacy detail redirect checks');
+    }
+
+    const auctionRedirectChecks = [
+        { source: `${baseUrl}/home/auction?category=live`, expectedPath: '/home/auction/live' },
+        { source: `${baseUrl}/home/auction?state=2`, expectedPath: '/home/auction/ended' }
+    ];
+    for (const check of auctionRedirectChecks) {
+        const { res } = await fetchText(check.source, { redirect: 'manual' });
+        if (res.status !== 301) {
+            fail('canonical redirect', `${check.source} should return 301, got ${res.status}`);
+            continue;
+        }
+        const location = res.headers.get('location');
+        const next = asAbsoluteUrl(location || '', check.source);
+        if (!next || new URL(next).pathname !== check.expectedPath) {
+            fail('canonical redirect', `${check.source} should point to ${check.expectedPath}, got ${location || '(none)'}`);
+            continue;
+        }
+        pass('canonical redirect', `${check.source} -> ${check.expectedPath}`);
     }
 
     const maxChecks = Math.min(25, locs.length);

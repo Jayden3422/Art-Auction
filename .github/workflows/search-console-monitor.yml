@@ -1,0 +1,68 @@
+name: Search Console Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 3 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  gsc-monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run Search Console monitor
+        id: gsc_monitor
+        continue-on-error: true
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+          GSC_SITEMAP_URL: ${{ vars.GSC_SITEMAP_URL }}
+          GSC_PROPERTY_URI: ${{ secrets.GSC_PROPERTY_URI }}
+          GSC_SERVICE_ACCOUNT_JSON: ${{ secrets.GSC_SERVICE_ACCOUNT_JSON }}
+          GSC_MONITOR_MAX_URLS: ${{ vars.GSC_MONITOR_MAX_URLS }}
+          GSC_SOFT404_THRESHOLD: ${{ vars.GSC_SOFT404_THRESHOLD }}
+          GSC_DUPLICATE_THRESHOLD: ${{ vars.GSC_DUPLICATE_THRESHOLD }}
+          GSC_MONITOR_REPORT: search-console-monitor-report.md
+        run: |
+          set -o pipefail
+          npm --prefix backend run seo:gsc-monitor 2>&1 | tee gsc-monitor.log
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Publish monitor summary
+        if: always()
+        run: |
+          if [ -f search-console-monitor-report.md ]; then
+            cat search-console-monitor-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Search Console monitor report not generated." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload monitor artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: search-console-monitor
+          path: |
+            search-console-monitor-report.md
+            gsc-monitor.log
+          if-no-files-found: ignore
+
+      - name: Enforce monitor thresholds
+        if: always()
+        run: |
+          if [ "${{ steps.gsc_monitor.outputs.exit_code }}" != "0" ]; then
+            echo "Search Console monitor detected threshold breach or runtime failure."
+            exit 1
+          fi

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { BOT_USER_AGENTS } from './botLogger.js';
+import { isKnownFrontendRoute } from '../tools/frontendRoutes.js';
 
 const PRERENDERED_ROUTES = new Set([
     '/login',
@@ -54,6 +55,10 @@ export function dynamicRender(distDir) {
         }
         const userAgent = (req.headers['user-agent'] || '').toLowerCase();
         if (!botPattern.test(userAgent)) {
+            next();
+            return;
+        }
+        if (!isKnownFrontendRoute(req.path)) {
             next();
             return;
         }

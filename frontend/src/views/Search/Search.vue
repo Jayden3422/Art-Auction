@@ -81,14 +81,12 @@ export default {
             if(permission.Permission == 0) {
             // 买家进入拍卖页
                 routeData = router.resolve({
-                    path: "/home/detail",
-                    query: form
+                    path: `/home/detail/${form.GOOD_ID}`
                 });
             }else {
             // 卖家和管理员进入详情页
                 routeData = router.resolve({
-                    path: "/home/details",
-                    query: form
+                    path: `/home/detail/${form.GOOD_ID}`
                 });
             }
             window.open(routeData.href, "_blank");

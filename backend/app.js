@@ -44,6 +44,11 @@ import fs from 'fs';
 import { dynamicRender } from './middleware/dynamicRender.js';
 import { seoRender } from './middleware/seoRender.js';
 import { resolveSiteUrl, toAbsoluteUrl } from './tools/seoSite.js';
+import {
+    isKnownFrontendRoute,
+    resolveAuctionCategoryCanonicalPath,
+    resolveLegacyDetailCanonicalPath
+} from './tools/frontendRoutes.js';
 
 // 新增：引入 i18n
 import i18n from 'i18n';
@@ -229,6 +234,24 @@ app.use((req, res, next) => {
 const frontendDistDir = path.join(__dirname, '../frontend/dist');
 const canServeFrontend = process.env.NODE_ENV === 'production' && fs.existsSync(frontendDistDir);
 
+function buildCanonicalRedirectTarget(req, canonicalPath, paramsToStrip = []) {
+    const query = new URLSearchParams();
+    Object.entries(req.query || {}).forEach(([key, value]) => {
+        if (paramsToStrip.includes(key)) {
+            return;
+        }
+        if (Array.isArray(value)) {
+            value.forEach((entry) => query.append(key, String(entry)));
+            return;
+        }
+        if (value !== undefined && value !== null && value !== '') {
+            query.set(key, String(value));
+        }
+    });
+    const search = query.toString();
+    return search ? `${canonicalPath}?${search}` : canonicalPath;
+}
+
 // 拍卖时间结束后的操作
 if (process.env.NODE_ENV !== 'test') {
     final();
@@ -265,6 +288,34 @@ app.use('/buyr', buyr);
 app.use('/seller', seller);
 app.use('/admin', admin);
 
+app.get(['/home/detail', '/home/details', '/home/details/:id'], (req, res, next) => {
+    const canonicalPath = resolveLegacyDetailCanonicalPath(req.path, req.query);
+    if (!canonicalPath) {
+        if (req.path === '/home/detail' || req.path === '/home/details') {
+            res.status(404).send('Not found');
+            return;
+        }
+        next();
+        return;
+    }
+    const target = buildCanonicalRedirectTarget(
+        req,
+        canonicalPath,
+        ['GOOD_ID', 'goodId', 'id']
+    );
+    res.redirect(301, target);
+});
+
+app.get('/home/auction', (req, res, next) => {
+    const canonicalPath = resolveAuctionCategoryCanonicalPath(req.path, req.query);
+    if (!canonicalPath) {
+        next();
+        return;
+    }
+    const target = buildCanonicalRedirectTarget(req, canonicalPath, ['category', 'state']);
+    res.redirect(301, target);
+});
+
 if (canServeFrontend) {
     app.use(seoRender());
     app.use(dynamicRender(frontendDistDir));
@@ -275,6 +326,10 @@ if (canServeFrontend) {
     app.get('*', (req, res, next) => {
         if (req.method !== 'GET' || isApiRequestPath(req.path) || path.extname(req.path)) {
             next();
+            return;
+        }
+        if (!isKnownFrontendRoute(req.path)) {
+            res.status(404).send('Not found');
             return;
         }
         res.sendFile(path.join(frontendDistDir, 'index.html'));

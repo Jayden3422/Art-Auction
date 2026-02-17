@@ -178,7 +178,7 @@ export default {
                 buildBreadcrumbJsonLd([
                     { name: 'Home', path: '/home/auction' },
                     { name: 'Auction Listings', path: '/home/auction' },
-                    { name: List.info.NAME, path: `/home/details/${List.info.GOOD_ID}` }
+                    { name: List.info.NAME, path: `/home/detail/${List.info.GOOD_ID}` }
                 ])
             ]);
         }

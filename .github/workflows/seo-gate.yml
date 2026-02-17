@@ -6,6 +6,10 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   seo-gate:
     runs-on: ubuntu-latest
@@ -51,15 +55,116 @@ jobs:
         run: npx wait-on@7.2.0 http://127.0.0.1:3000/robots.txt
 
       - name: Run SEO structural gate
+        id: seo_gate
+        continue-on-error: true
         working-directory: backend
         env:
           SEO_CHECK_BASE_URL: http://127.0.0.1:3000
-        run: npm run seo:ci
+        run: |
+          set -o pipefail
+          npm run seo:ci 2>&1 | tee ../seo-ci.log
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Run Lighthouse CI gate
+        id: lhci_gate
+        continue-on-error: true
         env:
           LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
-        run: npx @lhci/cli@0.15.1 autorun --config=.lighthouserc.json
+        run: |
+          set -o pipefail
+          npx @lhci/cli@0.15.1 autorun --config=.lighthouserc.json 2>&1 | tee lhci.log
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Build SEO report
+        if: always()
+        run: |
+          seo_status="PASS"
+          lhci_status="PASS"
+          if [ "${{ steps.seo_gate.outputs.exit_code }}" != "0" ]; then seo_status="FAIL"; fi
+          if [ "${{ steps.lhci_gate.outputs.exit_code }}" != "0" ]; then lhci_status="FAIL"; fi
+
+          {
+            echo "## SEO Gate Report"
+            echo ""
+            echo "- Structural gate (npm run seo:ci): **${seo_status}**"
+            echo "- Lighthouse CI: **${lhci_status}**"
+            echo ""
+            if [ -f lhci.log ]; then
+              report_urls=$(grep -Eo 'https://storage.googleapis.com/lighthouse-infrastructure.appspot.com/reports/[^ ]+' lhci.log | sort -u || true)
+              if [ -n "$report_urls" ]; then
+                echo "### Lighthouse Reports"
+                echo "$report_urls" | while read -r url; do
+                  [ -n "$url" ] && echo "- ${url}"
+                done
+                echo ""
+              fi
+            fi
+
+            if [ -f seo-ci.log ]; then
+              echo "<details><summary>seo:ci log (tail 120 lines)</summary>"
+              echo ""
+              echo '```text'
+              tail -n 120 seo-ci.log
+              echo '```'
+              echo "</details>"
+              echo ""
+            fi
+
+            if [ -f lhci.log ]; then
+              echo "<details><summary>Lighthouse log (tail 120 lines)</summary>"
+              echo ""
+              echo '```text'
+              tail -n 120 lhci.log
+              echo '```'
+              echo "</details>"
+            fi
+          } > seo-report.md
+
+          cat seo-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload SEO artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-gate-artifacts
+          path: |
+            seo-ci.log
+            lhci.log
+            seo-report.md
+          if-no-files-found: ignore
+
+      - name: Comment SEO report on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const fs = require('fs');
+              const marker = '<!-- seo-gate-report -->';
+              const report = fs.existsSync('seo-report.md') ? fs.readFileSync('seo-report.md', 'utf8') : 'SEO report missing.';
+              const body = `${marker}\n${report}`;
+              const { owner, repo } = context.repo;
+              const issue_number = context.issue.number;
+              const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 100 });
+              const existing = comments.find((c) => c.body && c.body.includes(marker));
+              if (existing) {
+                await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+              } else {
+                await github.rest.issues.createComment({ owner, repo, issue_number, body });
+              }
+            } catch (error) {
+              core.warning(`Unable to publish PR comment: ${error.message}`);
+            }
+
+      - name: Enforce SEO gates
+        if: always()
+        run: |
+          if [ "${{ steps.seo_gate.outputs.exit_code }}" != "0" ] || [ "${{ steps.lhci_gate.outputs.exit_code }}" != "0" ]; then
+            echo "SEO gate failed: seo=${{ steps.seo_gate.outputs.exit_code }}, lhci=${{ steps.lhci_gate.outputs.exit_code }}"
+            exit 1
+          fi
 
       - name: Stop backend and print logs
         if: always()

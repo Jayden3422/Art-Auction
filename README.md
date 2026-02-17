@@ -17,10 +17,11 @@ A full-stack online art auction platform built with **Vue 3** and **Express.js**
   - [Data Statistics & PDF Export](#data-statistics--pdf-export)
 - [SEO Engineering](#seo-engineering)
   - [SEO Architecture](#seo-architecture)
-  - [Public Crawlable Pages (P0)](#public-crawlable-pages-p0)
-  - [Sitemap and Robots Consistency (P0)](#sitemap-and-robots-consistency-p0)
-  - [SSR and Prerender Coverage (P1)](#ssr-and-prerender-coverage-p1)
-  - [SEO CI Gate (P1)](#seo-ci-gate-p1)
+  - [Public Crawlable Pages](#public-crawlable-pages)
+  - [Sitemap and Robots Consistency](#sitemap-and-robots-consistency)
+  - [SSR and Prerender Coverage](#ssr-and-prerender-coverage)
+  - [SEO CI Gate](#seo-ci-gate)
+  - [Search Console Monitor](#search-console-monitor)
 - [Testing](#testing)
 - [System Architecture](#system-architecture)
 - [Functional Modules](#functional-modules)
@@ -172,6 +173,8 @@ This project keeps a Vue CLI SPA architecture while delivering crawlable HTML an
 
 - **Bot-oriented server rendering:** `backend/middleware/seoRender.js` returns full HTML for key landing routes.
 - **SPA meta management:** `frontend/src/utils/seo.js` updates title, meta tags, canonical, and hreflang during client navigation.
+- **Canonical URL normalization:** only `/home/detail/:id` is treated as canonical detail URL; legacy forms (`/home/detail?GOOD_ID=...`, `/home/details/:id`, `/home/details?GOOD_ID=...`) are redirected to canonical via `301`.
+- **Strict frontend-route status policy:** production fallback serves `index.html` only for known SPA routes; unknown frontend paths return real `404` to reduce soft-404 risk.
 - **Build-time prerender:** `frontend/vue.config.js` prerenders `/login` and `/signin` in production builds.
 - **CI enforcement:** `.github/workflows/seo-gate.yml` runs both structural checks and Lighthouse CI.
 
@@ -191,6 +194,9 @@ This project keeps a Vue CLI SPA architecture while delivering crawlable HTML an
   - `/home/auction/live`
   - `/home/auction/ended`
   - `/home/detail/:id`
+- Frontend router provides explicit human-landing routes for:
+  - `/home/auction/upcoming`, `/home/auction/live`, `/home/auction/ended`
+  - `/home/detail/:id`
 - `?__seo=1` (or request header `x-seo-render: 1`) can force SEO HTML output for validation.
 
 ### Sitemap and Robots Consistency
@@ -203,7 +209,8 @@ This project keeps a Vue CLI SPA architecture while delivering crawlable HTML an
   - listing pages: `/home/auction`, `/home/auction/upcoming`, `/home/auction/live`, `/home/auction/ended`
   - detail pages: `/home/detail/:id` from active inventory plus optional `SEO_HOT_DETAIL_IDS`
   - `hreflang` alternates (`en`, `zh`, `x-default`) and `lastmod` when available.
-- Non-existing detail pages are rendered as true `404` responses (not soft-404 pages).
+- Non-existing detail pages are rendered as true `404` responses.
+- Unknown frontend routes are rendered as true `404` responses in production (not SPA shell `200` soft-404 behavior).
 
 ### SSR and Prerender Coverage
 
@@ -221,16 +228,43 @@ This project keeps a Vue CLI SPA architecture while delivering crawlable HTML an
   - robots reachability and absolute sitemap directive
   - sitemap `<loc>` absolute URLs and required listing/category URLs
   - redirect hop limits and `404` probe behavior
+  - canonical redirect behavior from legacy detail/query URLs to `/home/detail/:id`
+  - unknown frontend route status (must return `404`)
   - JSON-LD existence and `schema.org` validity on listing/category/detail pages.
 - Lighthouse CI config: `.lighthouserc.json`
   - audited URLs include `/login`, `/signin`, and SEO-rendered auction routes
   - enforced threshold: `categories:seo >= 0.9`.
+- PR visibility:
+  - workflow uploads `seo-ci.log` + `lhci.log` artifacts
+  - workflow writes a markdown summary to the job summary
+  - workflow posts/updates a sticky PR comment with SEO + Lighthouse result snapshot
+  - merge is blocked when structural gate or Lighthouse gate fails
 
 Local checks:
 
 ```bash
 cd backend
 npm run seo:ci
+```
+
+### Search Console Monitor
+
+- Workflow: `.github/workflows/search-console-monitor.yml` (daily schedule + manual trigger)
+- Script: `backend/scripts/search-console-monitor.js`
+  - inspects sitemap URLs via Search Console URL Inspection API
+  - tracks `Soft 404` and `Duplicate without user-selected canonical`
+  - uploads markdown report artifact and fails the workflow when thresholds are exceeded
+- Required secrets/variables for GitHub Actions:
+  - `secrets.GSC_SERVICE_ACCOUNT_JSON` (service account JSON; this account must have access to the Search Console property)
+  - `secrets.GSC_PROPERTY_URI` (for example `sc-domain:example.com` or `https://example.com/`)
+  - `vars.SITE_URL` (public site URL used to resolve `/all/sitemap.xml`)
+  - optional: `vars.GSC_MONITOR_MAX_URLS`, `vars.GSC_SOFT404_THRESHOLD`, `vars.GSC_DUPLICATE_THRESHOLD`, `vars.GSC_SITEMAP_URL`
+
+Local run:
+
+```bash
+cd backend
+npm run seo:gsc-monitor
 ```
 
 ---
