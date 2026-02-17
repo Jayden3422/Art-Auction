@@ -30,6 +30,13 @@ const PUBLIC_CONTENT_PATHS = new Set([
     '/home/details'
 ]);
 
+function isPublicContentPath(pathname) {
+    return PUBLIC_CONTENT_PATHS.has(pathname)
+        || pathname.startsWith('/home/auction/')
+        || pathname.startsWith('/home/detail/')
+        || pathname.startsWith('/home/details/');
+}
+
 router.beforeEach(async (to, from, next) => {
     let loadingBar = document.getElementById('global-loading')
     if (!loadingBar) {
@@ -57,7 +64,7 @@ router.beforeEach(async (to, from, next) => {
         return;
     }
 
-    if (!to.meta.isAuth || PUBLIC_CONTENT_PATHS.has(to.path)) {
+    if (!to.meta.isAuth || isPublicContentPath(to.path)) {
         next();
         return;
     }

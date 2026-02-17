@@ -14,7 +14,7 @@
             v-if="!(permission.per == 0)"
             @click="addGood"
         >{{ $t('message.add') }}</a-button>
-        <a-tabs v-model:activeKey="activeKey">
+        <a-tabs v-model:activeKey="activeKey" @change="onTabChange">
             <a-tab-pane key="0" :tab="t('message.upAuction')">
                 <Suspense>
                     <template v-slot:default>
@@ -56,6 +56,7 @@ import Cookie from 'js-cookie';
 import store from '@/store';
 import router from '@/router';
 import { useI18n } from 'vue-i18n';
+import { watch } from 'vue';
 export default {
     components: {
         GoodsList,
@@ -88,7 +89,40 @@ export default {
             }, 2000);
         }
         // tabs
-        var activeKey = ref("0");
+        function resolveTabKeyByPath(pathname) {
+            if (pathname.endsWith('/auction/live')) {
+                return "1";
+            }
+            if (pathname.endsWith('/auction/ended')) {
+                return "2";
+            }
+            return "0";
+        }
+        function resolvePathByTabKey(tabKey) {
+            if (tabKey === "1") {
+                return '/home/auction/live';
+            }
+            if (tabKey === "2") {
+                return '/home/auction/ended';
+            }
+            return '/home/auction/upcoming';
+        }
+        var activeKey = ref(resolveTabKeyByPath(router.currentRoute.value.path || '/home/auction'));
+        function onTabChange(tabKey) {
+            const targetPath = resolvePathByTabKey(tabKey);
+            if (router.currentRoute.value.path !== targetPath) {
+                router.replace(targetPath).catch(() => {});
+            }
+        }
+        watch(
+            () => router.currentRoute.value.path,
+            (pathname) => {
+                const nextKey = resolveTabKeyByPath(pathname || '/home/auction');
+                if (nextKey !== activeKey.value) {
+                    activeKey.value = nextKey;
+                }
+            }
+        );
         function addGood() {
             store.commit("addGood");
             store.commit("setGoodInfo", {});
@@ -100,6 +134,7 @@ export default {
             isErr,
             errInfo,
             activeKey,
+            onTabChange,
             t
         };
     },

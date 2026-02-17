@@ -138,14 +138,12 @@ export default {
             if(props.permission.per == 0) {
             // 买家进入拍卖页
                 routeData = router.resolve({
-                    path: "/home/detail",
-                    query: {GOOD_ID: form.GOOD_ID}
+                    path: `/home/detail/${form.GOOD_ID}`
                 });
             }else {
             // 卖家和管理员进入详情页
                 routeData = router.resolve({
-                    path: "/home/details",
-                    query: {GOOD_ID: form.GOOD_ID}
+                    path: `/home/details/${form.GOOD_ID}`
                 });
             }
             return routeData.href;

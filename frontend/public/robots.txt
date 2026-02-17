@@ -1,3 +1,5 @@
+# Fallback robots file for static-only hosting.
+# Canonical robots is served by backend /robots.txt with environment-aware SITE_URL.
 User-agent: *
 Disallow: /home/mine
 Disallow: /home/order*
@@ -8,4 +10,4 @@ Disallow: /home/goodinfo
 Disallow: /home/addannounce
 Disallow: /statistics
 
-Sitemap: /api1/all/sitemap.xml
+Sitemap: https://example.com/all/sitemap.xml

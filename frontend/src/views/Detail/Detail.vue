@@ -159,7 +159,8 @@ export default {
     async setup() {
         const { t } = useI18n();
         var typeList = reactive([].slice.call(useStore().state.classList));
-        var goodID = useRoute().query.GOOD_ID;
+        const route = useRoute();
+        var goodID = route.params.id || route.query.GOOD_ID;
         var List = reactive({
             info: {}
         });
@@ -189,7 +190,7 @@ export default {
                 buildBreadcrumbJsonLd([
                     { name: 'Home', path: '/home/auction' },
                     { name: 'Auction Listings', path: '/home/auction' },
-                    { name: List.info.NAME, path: `/home/detail?GOOD_ID=${List.info.GOOD_ID}` }
+                    { name: List.info.NAME, path: `/home/detail/${List.info.GOOD_ID}` }
                 ])
             ]);
         }

@@ -42,6 +42,8 @@ import seller from "./routers/seller.js";
 import admin from "./routers/admin.js";
 import fs from 'fs';
 import { dynamicRender } from './middleware/dynamicRender.js';
+import { seoRender } from './middleware/seoRender.js';
+import { resolveSiteUrl, toAbsoluteUrl } from './tools/seoSite.js';
 
 // 新增：引入 i18n
 import i18n from 'i18n';
@@ -240,12 +242,31 @@ app.get('/', function (req, res, next) {
     res.send(req.__('hello') + ' Express');
 })
 
+app.get('/robots.txt', (req, res) => {
+    const siteUrl = resolveSiteUrl(req);
+    const lines = [
+        'User-agent: *',
+        'Disallow: /home/mine',
+        'Disallow: /home/order*',
+        'Disallow: /home/admins',
+        'Disallow: /home/users',
+        'Disallow: /home/sellers',
+        'Disallow: /home/goodinfo',
+        'Disallow: /home/addannounce',
+        'Disallow: /statistics',
+        '',
+        `Sitemap: ${toAbsoluteUrl(siteUrl, '/all/sitemap.xml')}`
+    ];
+    res.type('text/plain').send(lines.join('\n'));
+});
+
 app.use('/all', all);
 app.use('/buyr', buyr);
 app.use('/seller', seller);
 app.use('/admin', admin);
 
 if (canServeFrontend) {
+    app.use(seoRender());
     app.use(dynamicRender(frontendDistDir));
     app.use(express.static(frontendDistDir, {
         index: false,

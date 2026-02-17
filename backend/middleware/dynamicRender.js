@@ -2,7 +2,14 @@ import fs from 'fs';
 import path from 'path';
 import { BOT_USER_AGENTS } from './botLogger.js';
 
-const PRERENDERED_ROUTES = new Set(['/login', '/signin']);
+const PRERENDERED_ROUTES = new Set([
+    '/login',
+    '/signin',
+    '/home/auction',
+    '/home/auction/upcoming',
+    '/home/auction/live',
+    '/home/auction/ended'
+]);
 const botPattern = new RegExp(BOT_USER_AGENTS.join('|'), 'i');
 
 function isHtmlNavigationRequest(req) {

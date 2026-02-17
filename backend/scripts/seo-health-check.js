@@ -124,7 +124,7 @@ async function checkFrontendRoutes() {
 
     const goodId = await discoverGoodId();
     if (goodId) {
-        await checkFrontendRoute(`/home/detail?GOOD_ID=${goodId}`, '<div id="app">');
+        await checkFrontendRoute(`/home/detail/${goodId}`, '<div id="app">');
     }
 }
 
@@ -146,4 +146,3 @@ run().catch((error) => {
     console.error('FAIL  seo-health-check', error.message);
     process.exit(1);
 });
-

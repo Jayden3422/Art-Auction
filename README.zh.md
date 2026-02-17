@@ -16,15 +16,11 @@
   - [实时拍卖模块](#实时拍卖模块)
   - [数据统计与 PDF 导出](#数据统计与-pdf-导出)
 - [SEO 工程](#seo-工程)
-  - [挑战：Vue SPA 的 SEO 问题](#挑战vue-spa-的-seo-问题)
-  - [近期 SEO 实现更新（2026-02）](#近期-seo-实现更新2026-02)
-  - [架构总览](#架构总览)
-  - [后端 SEO 基础设施](#后端-seo-基础设施)
-  - [前端动态 Meta 管理](#前端动态-meta-管理)
-  - [结构化数据 (JSON-LD)](#结构化数据-json-ld)
-  - [国际化 SEO (hreflang)](#国际化-seo-hreflang)
-  - [预渲染策略](#预渲染策略)
-  - [可抓取性与索引控制](#可抓取性与索引控制)
+  - [SEO 架构](#seo-架构)
+  - [公开可抓取页面（P0）](#公开可抓取页面p0)
+  - [Sitemap 与 Robots 一致性（P0）](#sitemap-与-robots-一致性p0)
+  - [SSR 与预渲染覆盖（P1）](#ssr-与预渲染覆盖p1)
+  - [SEO CI 门禁（P1）](#seo-ci-门禁p1)
 - [测试](#测试)
 - [系统架构](#系统架构)
 - [功能模块](#功能模块)
@@ -170,142 +166,72 @@ node data/liujinqi.js
 
 ## SEO 工程
 
-### 挑战：Vue SPA 的 SEO 问题
+本项目保持 Vue CLI SPA 架构，同时提供可抓取 HTML 和可执行的 SEO 质量门禁。
 
-单页应用天生不利于搜索引擎抓取。整个 UI 由客户端 JavaScript 渲染，爬虫在初次加载时只能看到一个空的 `<div id="app">`。传统方案是迁移到 SSR（Nuxt.js）或 SSG，但这需要大规模的架构重构。
+### SEO 架构
 
-**我的方案：** 在不迁移 Vue CLI 的前提下，通过后端基础设施、客户端动态 Meta 管理、结构化数据注入和选择性预渲染相结合，构建一套多层级 SEO 体系。
+- **面向爬虫的服务端渲染：** `backend/middleware/seoRender.js` 为关键落地路由返回完整 HTML。
+- **SPA 动态 Meta 管理：** `frontend/src/utils/seo.js` 在前端路由切换时更新 title、meta、canonical、hreflang。
+- **构建期预渲染：** `frontend/vue.config.js` 在生产构建时预渲染 `/login` 和 `/signin`。
+- **CI 强制门禁：** `.github/workflows/seo-gate.yml` 同时执行结构化 SEO 校验和 Lighthouse CI。
 
-### 近期 SEO 实现更新（2026-02）
+### 公开可抓取页面
 
-- 在 `backend/app.js` 中按“请求方法 + 路径”细化白名单：公开 SEO 路由放行，受保护 API 继续鉴权。
-- 新增 `GET /all/getPriceList/:id`，与 `GET /all/getGood/:id` 配对，保证详情数据可被爬虫读取。
-- 新增 Bot 日志中间件（`backend/middleware/botLogger.js`），用于观测爬虫行为。
-- 新增动态渲染中间件 + 生产静态资源兜底（`backend/middleware/dynamicRender.js`）。
-- 公开内容路由移除登录依赖，`Home.vue` / `Auction.vue` 对匿名会话做了容错。
-- 详情页数据读取由 POST 改为 GET。
-- 增加 `buildBreadcrumbJsonLd`，详情页注入 BreadcrumbList JSON-LD。
-- `GoodsList` 改为可抓取链接，同时补充图片尺寸与语义化标题层级。
-- 增加 SEO 健康检查脚本：在 `backend` 下执行 `npm run seo:health`。
+- `backend/app.js` 将前端 HTML 路由保持为公开访问，并对白名单 SEO API 放行；受保护 API 仍要求 token 校验。
+- 可被爬虫直接访问的接口包括：
+  - `GET /all/getAllGoods`
+  - `GET /all/getAllNear`
+  - `GET /all/getAllSale`
+  - `GET /all/getAllEnd`
+  - `GET /all/getGood/:id`
+  - `GET /all/getPriceList/:id`
+- `seoRender()` 会为以下页面返回完整 HTML（含 `<h1>`、canonical、hreflang、JSON-LD）：
+  - `/home/auction`
+  - `/home/auction/upcoming`
+  - `/home/auction/live`
+  - `/home/auction/ended`
+  - `/home/detail/:id`
+- 可通过 `?__seo=1`（或请求头 `x-seo-render: 1`）强制输出 SEO HTML，便于验证与调试。
 
-### 架构总览
+### Sitemap 与 Robots 一致性
 
+- `GET /robots.txt` 由后端动态生成，并始终输出绝对地址的 sitemap：
+  - `Sitemap: <SITE_URL>/all/sitemap.xml`
+  - 通过 `resolveSiteUrl()` + `toAbsoluteUrl()` 生成。
+- `GET /all/sitemap.xml` 生成规范化绝对 URL，包含：
+  - 落地页：`/login`、`/signin`
+  - 列表页：`/home/auction`、`/home/auction/upcoming`、`/home/auction/live`、`/home/auction/ended`
+  - 详情页：来自活跃库存的 `/home/detail/:id`，并支持附加 `SEO_HOT_DETAIL_IDS`
+  - `hreflang` 变体（`en`、`zh`、`x-default`）和可用时的 `lastmod`。
+- 不存在的详情页会返回真实 `404`（非 soft-404）。
+
+### SSR 与预渲染覆盖
+
+- 在不迁移到 Nuxt/Next 的前提下，对高价值自然流量入口页应用服务端 SEO HTML：
+  - 拍卖列表页
+  - 分类页（`upcoming`、`live`、`ended`）
+  - 详情页。
+- 构建期预渲染保留 `/login`、`/signin` 的静态 HTML，提升首屏可见性。
+- 在 CI 中可通过 `ENABLE_PRERENDER=0` 关闭预渲染，保证构建过程可重复。
+
+### SEO CI 门禁
+
+- 工作流：`.github/workflows/seo-gate.yml`
+- 结构化门禁脚本：`backend/scripts/seo-ci-gate.js`，校验项包括：
+  - robots 可访问且 sitemap 指令为绝对 URL
+  - sitemap 的 `<loc>` 为绝对 URL，且包含关键列表/分类路由
+  - 重定向跳转次数限制与 `404` 探测行为
+  - 列表页/分类页/详情页的 JSON-LD 存在性与 `schema.org` 有效性。
+- Lighthouse CI 配置：`.lighthouserc.json`
+  - 审计 URL 包含 `/login`、`/signin` 和 SEO 渲染的拍卖路由
+  - 强制阈值：`categories:seo >= 0.9`。
+
+本地检查：
+
+```bash
+cd backend
+npm run seo:ci
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      SEO 架构                                │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  后端 (Express.js)                                          │
-│  ├── gzip 压缩 (compression 中间件)                         │
-│  ├── 安全响应头 (CSP, X-Content-Type-Options)                │
-│  ├── GET /all/getGood/:id — 爬虫可访问的商品接口             │
-│  ├── GET /all/sitemap.xml — 从数据库动态生成 XML Sitemap     │
-│  └── 404 兜底路由，返回正确状态码                             │
-│                                                             │
-│  前端 (Vue 3)                                               │
-│  ├── 路由守卫 → 每次导航调用 updateRouteMeta()               │
-│  │   ├── document.title                                     │
-│  │   ├── <meta> description, keywords, og:*, twitter:*      │
-│  │   ├── <link rel="canonical">                             │
-│  │   └── <link rel="alternate" hreflang="...">              │
-│  ├── 详情页 → 动态 Product JSON-LD                           │
-│  ├── 列表页 → ItemList JSON-LD                              │
-│  ├── 应用级 → WebSite + Organization JSON-LD                │
-│  ├── 404 兜底路由，设置 noindex meta                         │
-│  └── 预渲染 (/login, /signin) 于构建时生成                   │
-│                                                             │
-│  静态资源                                                    │
-│  ├── robots.txt — 屏蔽需登录的管理页面                       │
-│  ├── index.html — 基础 meta + OG + Twitter Card              │
-│  └── .env — GSC 验证码、站点 URL 配置                        │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 后端 SEO 基础设施
-
-**文件：** `backend/app.js`、`backend/routers/all.js`
-
-1. **Gzip 压缩** — `compression` 中间件减小响应体积，提升页面加载速度（搜索引擎排名因素之一）。
-
-2. **安全响应头** — 所有响应均添加 Content-Security-Policy、X-Content-Type-Options、X-Frame-Options。使用现代 CSP 替代已废弃的 X-XSS-Protection。
-
-3. **爬虫可访问的 GET 接口** — 将原本仅支持 POST 的 `/all/getGood` 增加 `GET /all/getGood/:id`，使搜索引擎爬虫无需 POST 请求体即可获取商品数据。
-
-4. **动态 XML Sitemap**（`GET /all/sitemap.xml`）— 查询 MongoDB 中所有活跃和即将开拍的商品，生成符合标准的 XML Sitemap：
-   - `<lastmod>` 时间戳
-   - 每个 URL 附带 `<xhtml:link rel="alternate" hreflang="...">` 标注（en、zh、x-default）
-   - 仅包含可索引的规范 URL（排除已结束 / 已下架商品）
-
-5. **404 兜底** — 在所有路由定义之后，兜底中间件返回 `404` 状态码及 JSON 响应体，确保爬虫对不存在的路径收到正确的 HTTP 状态码。
-
-### 前端动态 Meta 管理
-
-**文件：** `frontend/src/utils/seo.js` — 一个零依赖的工具模块（约 220 行），通过原生 DOM 操作管理所有 SEO 相关事务。
-
-**为什么不用第三方库？** 如 `@unhead/vue` 等库会增加包体积和复杂度。由于项目使用 Vue CLI（非 Nuxt），原生 `document.querySelector` + `document.createElement` 即可实现完全控制，无需额外依赖。
-
-核心函数：
-
-| 函数 | 用途 |
-|------|------|
-| `setMetaTag(attr, key, content)` | 创建或更新任意 `<meta>` 标签 |
-| `setCanonicalUrl(path)` | 设置 `<link rel="canonical">`，防止重复内容 |
-| `setHreflang(path)` | 设置双向 `<link rel="alternate" hreflang>` 标注（en/zh/x-default） |
-| `updateRouteMeta(meta, fullPath, path)` | 在路由 `beforeEach` 守卫中调用 — 每次导航更新 title、description、keywords、OG 标签、canonical 和 hreflang |
-
-**路由集成**（`main.js`）：`router/index.js` 中每个路由均携带 `meta: { title, description, keywords }`。`beforeEach` 守卫调用 `updateRouteMeta()` 在页面渲染前更新所有 meta 标签。
-
-### 结构化数据 (JSON-LD)
-
-注入 Schema.org 结构化数据以启用 Google 富搜索结果：
-
-| Schema 类型 | 注入位置 | 用途 |
-|-------------|----------|------|
-| **Product + Offer** | 详情页（`Detail.vue`、`DetailS.vue`） | 单件拍品信息：价格、可用性（4 种状态：PreOrder/InStock/SoldOut/Discontinued）、卖家、SKU、可用时间窗口 |
-| **WebSite** | App.vue（mounted） | 站点级身份标识 |
-| **Organization** | App.vue（mounted） | 组织信息，用于知识面板 |
-| **ItemList** | GoodsList.vue | 拍品列表页（最多 50 件），启用轮播 / 列表富搜索结果 |
-
-**商品可用性逻辑**将拍卖状态映射为 Schema.org 枚举值：
-```
-拍卖未开始      → schema.org/PreOrder
-拍卖进行中      → schema.org/InStock + availabilityEnds
-拍卖已结束（成交）→ schema.org/SoldOut
-拍卖已结束（流拍）→ schema.org/Discontinued
-```
-
-### 国际化 SEO (hreflang)
-
-双向 hreflang 标注告知搜索引擎不同语言版本的对应关系：
-
-- **客户端：** `setHreflang(path)` 在每次路由切换时动态注入 `<link rel="alternate" hreflang="en|zh|x-default">`
-- **Sitemap：** 每个 URL 条目包含所有语言变体的 `<xhtml:link>` 替代链接
-- **index.html：** 静态 HTML 中预置默认 hreflang 链接作为兜底
-- **Google Search Console：** 验证 meta 标签可通过 `VUE_APP_GSC_VERIFICATION` 环境变量配置
-
-### 预渲染策略
-
-**文件：** `frontend/vue.config.js`
-
-对公开的落地页（`/login`、`/signin`），使用 `@prerenderer/webpack-plugin` 配合 Puppeteer 在构建时生成静态 HTML。这使爬虫在关键入口页获取完整渲染的 HTML，无需 SSR 基础设施。
-
-```js
-// 仅生产构建 — Puppeteer 不可用时优雅降级
-if (isProduction) {
-  new PrerendererWebpackPlugin({
-    routes: ['/login', '/signin'],
-    renderer: '@prerenderer/renderer-puppeteer',
-    rendererOptions: { renderAfterTime: 5000, headless: true }
-  })
-}
-```
-
-### 可抓取性与索引控制
-
-- **robots.txt** — 仅屏蔽需登录的管理页面（管理后台、个人设置、订单历史），所有公开页面均可抓取。
-- **404 页面**（`NotFound.vue`）— 兜底路由渲染友好的 404 页面，设置 `<meta name="robots" content="noindex, nofollow">` 防止被索引。
-- **图片无障碍** — 所有 `<img>` 标签绑定 `:alt` 属性（关联商品名称），并添加 `loading="lazy"` 提升性能。
 
 ---
 

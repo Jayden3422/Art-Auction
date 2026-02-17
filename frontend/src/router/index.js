@@ -42,6 +42,7 @@ const routes = [
       {
         path: 'auction',
         name: 'auction',
+        alias: ['/home/auction/upcoming', '/home/auction/live', '/home/auction/ended'],
         component: () => import('../views/Auction/Auction.vue'),
         meta: {
             title: "Auction Listings - Jayden Art Auction",
@@ -51,7 +52,7 @@ const routes = [
         }
       },
       {
-        path: 'detail',
+        path: 'detail/:id(\\d+)?',
         component: () => import('../views/Detail/Detail.vue'),
         meta: {
             title: "Item Details - Jayden Art Auction",
@@ -61,7 +62,7 @@ const routes = [
         }
       },
       {
-        path: 'details',
+        path: 'details/:id(\\d+)?',
         component: () => import('../views/Detail/DetailS.vue'),
         meta: {
             title: "Product Details - Jayden Art Auction",

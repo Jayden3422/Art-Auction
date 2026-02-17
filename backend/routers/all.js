@@ -27,6 +27,7 @@ var jsonParser = bodyParser.json();
 
 // Promise处理
 import { isFine, allPro } from "../tools/promise.js";
+import { resolveSiteUrl, toAbsoluteUrl } from "../tools/seoSite.js";
 
 
 const all = express.Router();
@@ -219,56 +220,90 @@ all.get('/getNewStat', async (req, res) => {
 })
 
 // SEO: Dynamic XML sitemap — only canonical, indexable, 200-status URLs
+function parseHotDetailIds(rawValue) {
+    if (!rawValue) {
+        return [];
+    }
+    return String(rawValue)
+        .split(',')
+        .map((item) => Number(item.trim()))
+        .filter((id) => Number.isInteger(id) && id > 0);
+}
+
+function xmlEscape(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
+function buildSitemapEntry(siteUrl, pathname, options = {}) {
+    const loc = toAbsoluteUrl(siteUrl, pathname);
+    const {
+        changefreq = 'weekly',
+        priority = '0.7',
+        lastmod = ''
+    } = options;
+
+    let xml = '  <url>\n';
+    xml += `    <loc>${xmlEscape(loc)}</loc>\n`;
+    xml += `    <xhtml:link rel="alternate" hreflang="en" href="${xmlEscape(`${loc}?lang=en`)}"/>\n`;
+    xml += `    <xhtml:link rel="alternate" hreflang="zh" href="${xmlEscape(`${loc}?lang=zh`)}"/>\n`;
+    xml += `    <xhtml:link rel="alternate" hreflang="x-default" href="${xmlEscape(loc)}"/>\n`;
+    if (lastmod) {
+        xml += `    <lastmod>${xmlEscape(lastmod)}</lastmod>\n`;
+    }
+    xml += `    <changefreq>${changefreq}</changefreq>\n`;
+    xml += `    <priority>${priority}</priority>\n`;
+    xml += '  </url>\n';
+    return xml;
+}
+
+// SEO: Dynamic XML sitemap with canonical absolute URLs
 all.get('/sitemap.xml', async (req, res) => {
-    const SITE_URL = process.env.SITE_URL || 'https://example.com';
+    const siteUrl = resolveSiteUrl(req);
     try {
-        // Only publicly accessible pages (no auth required, no noindex)
         let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
         xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n';
         xml += '        xmlns:xhtml="http://www.w3.org/1999/xhtml">\n';
 
-        // Login page — en + zh hreflang
-        xml += `  <url>\n`;
-        xml += `    <loc>${SITE_URL}/login</loc>\n`;
-        xml += `    <xhtml:link rel="alternate" hreflang="en" href="${SITE_URL}/login?lang=en"/>\n`;
-        xml += `    <xhtml:link rel="alternate" hreflang="zh" href="${SITE_URL}/login?lang=zh"/>\n`;
-        xml += `    <xhtml:link rel="alternate" hreflang="x-default" href="${SITE_URL}/login"/>\n`;
-        xml += `    <changefreq>monthly</changefreq>\n`;
-        xml += `    <priority>0.8</priority>\n`;
-        xml += `  </url>\n`;
+        xml += buildSitemapEntry(siteUrl, '/login', { changefreq: 'monthly', priority: '0.7' });
+        xml += buildSitemapEntry(siteUrl, '/signin', { changefreq: 'monthly', priority: '0.6' });
+        xml += buildSitemapEntry(siteUrl, '/home/auction', { changefreq: 'daily', priority: '0.9' });
+        xml += buildSitemapEntry(siteUrl, '/home/auction/upcoming', { changefreq: 'daily', priority: '0.85' });
+        xml += buildSitemapEntry(siteUrl, '/home/auction/live', { changefreq: 'hourly', priority: '0.9' });
+        xml += buildSitemapEntry(siteUrl, '/home/auction/ended', { changefreq: 'daily', priority: '0.7' });
 
-        // SignIn page — en + zh hreflang
-        xml += `  <url>\n`;
-        xml += `    <loc>${SITE_URL}/signin</loc>\n`;
-        xml += `    <xhtml:link rel="alternate" hreflang="en" href="${SITE_URL}/signin?lang=en"/>\n`;
-        xml += `    <xhtml:link rel="alternate" hreflang="zh" href="${SITE_URL}/signin?lang=zh"/>\n`;
-        xml += `    <xhtml:link rel="alternate" hreflang="x-default" href="${SITE_URL}/signin"/>\n`;
-        xml += `    <changefreq>monthly</changefreq>\n`;
-        xml += `    <priority>0.6</priority>\n`;
-        xml += `  </url>\n`;
-
-        // Auction listing (public content, even if behind auth guard on frontend)
-        xml += `  <url>\n`;
-        xml += `    <loc>${SITE_URL}/home/auction</loc>\n`;
-        xml += `    <changefreq>daily</changefreq>\n`;
-        xml += `    <priority>0.9</priority>\n`;
-        xml += `  </url>\n`;
-
-        // Individual auction items — only active or upcoming (not ended/sold)
         const nowDate = new Date();
-        let goodsList = await findSort("goods", { END_TIME: { $gt: nowDate } }, { START_TIME: -1 });
-        if (isFine(goodsList).judge) {
+        let goodsList = [];
+        try {
+            goodsList = await findSort('goods', { END_TIME: { $gt: nowDate } }, { START_TIME: -1 });
+            if (!Array.isArray(goodsList) || isFine(goodsList).judge) {
+                goodsList = [];
+            }
+        } catch (error) {
             goodsList = [];
         }
 
-        for (const good of goodsList) {
-            const lastmod = good.UPLOAD_TIME ? new Date(good.UPLOAD_TIME).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-            xml += `  <url>\n`;
-            xml += `    <loc>${SITE_URL}/home/detail?GOOD_ID=${good.GOOD_ID}</loc>\n`;
-            xml += `    <lastmod>${lastmod}</lastmod>\n`;
-            xml += `    <changefreq>daily</changefreq>\n`;
-            xml += `    <priority>0.9</priority>\n`;
-            xml += `  </url>\n`;
+        const detailIds = new Set(
+            goodsList
+                .map((good) => Number(good.GOOD_ID))
+                .filter((id) => Number.isInteger(id) && id > 0)
+        );
+        parseHotDetailIds(process.env.SEO_HOT_DETAIL_IDS).forEach((id) => detailIds.add(id));
+
+        for (const id of detailIds) {
+            const matched = goodsList.find((good) => Number(good.GOOD_ID) === id);
+            const lastmod = matched && matched.UPLOAD_TIME
+                ? new Date(matched.UPLOAD_TIME).toISOString().split('T')[0]
+                : '';
+            xml += buildSitemapEntry(siteUrl, `/home/detail/${id}`, {
+                changefreq: 'daily',
+                priority: '0.85',
+                lastmod
+            });
         }
 
         xml += '</urlset>';
@@ -280,5 +315,5 @@ all.get('/sitemap.xml', async (req, res) => {
         res.status(500).send('Error generating sitemap');
     }
 })
-
 export default all;
+

@@ -110,7 +110,7 @@ export function buildAuctionJsonLd(goodInfo) {
     const now = new Date()
     const startTime = new Date(goodInfo.START_TIME)
     const endTime = new Date(goodInfo.END_TIME)
-    const canonicalUrl = `${window.location.origin}/home/detail?GOOD_ID=${goodInfo.GOOD_ID}`
+    const canonicalUrl = `${window.location.origin}/home/detail/${goodInfo.GOOD_ID}`
 
     // Availability mapping: PreOrder → InStock → SoldOut/Discontinued
     let availability, itemAvailabilityEnds
@@ -239,8 +239,10 @@ export function buildItemListJsonLd(items) {
                 'name': item.NAME,
                 'image': item.IMG_URL || '',
                 'description': item.INTRODUCTION || '',
+                'url': `${window.location.origin}/home/detail/${item.GOOD_ID}`,
                 'offers': {
                     '@type': 'Offer',
+                    'url': `${window.location.origin}/home/detail/${item.GOOD_ID}`,
                     'priceCurrency': 'CNY',
                     'price': item.UPSET_PRICE || 0
                 }

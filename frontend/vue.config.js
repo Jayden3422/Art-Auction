@@ -5,9 +5,11 @@ const apiPort = process.env.VUE_APP_APP_PORT || '3000';
 const apiProxyTarget = `http://localhost:${apiPort}`;
 
 const isProduction = process.env.NODE_ENV === 'production'
+const enablePrerender = isProduction && process.env.ENABLE_PRERENDER !== '0'
 
 const config = {
   transpileDependencies: true,
+  parallel: false,
   devServer: {
     proxy: {
       [apiProxyPrefix]: {
@@ -22,7 +24,7 @@ const config = {
 }
 
 // Prerender public landing pages at build time for SEO
-if (isProduction) {
+if (enablePrerender) {
   try {
     const PrerendererWebpackPlugin = require('@prerenderer/webpack-plugin')
     config.configureWebpack = {

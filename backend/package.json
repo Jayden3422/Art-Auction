@@ -8,6 +8,7 @@
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
     "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
     "seo:health": "node scripts/seo-health-check.js",
+    "seo:ci": "node scripts/seo-ci-gate.js",
     "start": "node app.js",
     "dev": "nodemon app.js"
   },
