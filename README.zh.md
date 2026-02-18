@@ -58,7 +58,7 @@
 | 数据库 | MongoDB |
 | SEO | 自研 DOM Meta 管理、JSON-LD、动态 Sitemap、预渲染 |
 | 测试 | Jest、supertest |
-| 运维 | 阿里云 OSS（图片存储）、gzip 压缩、Content-Security-Policy |
+| 运维 | GitHub Actions（SEO Gate + GSC Monitor）、阿里云 OSS（图片存储）、gzip 压缩、Content-Security-Policy |
 | 可视化 | ECharts、html2canvas、jsPDF、Web Workers |
 
 ## 安装与运行
@@ -85,8 +85,10 @@ npm start               # 生产运行
 | `WS_PORT` | WebSocket 服务端口（默认：3001） |
 | `TRUST_PROXY` | Express 反向代理信任配置，用于在代理后正确识别客户端 IP（如 `1`、`true`、`loopback`） |
 | `MONGO_URL` | MongoDB 连接字符串 |
+| `MONGO_DB_NAME` | MongoDB 数据库名（默认：`liujinqi`） |
 | `JWT_SALT` | JWT 签名密钥 |
 | `SITE_URL` | 站点公开 URL，用于 Sitemap 生成 |
+| `SEO_HOT_DETAIL_IDS` | 可选：逗号分隔的详情页 ID，强制保留在 sitemap 中 |
 | `OSS_*` | 阿里云 OSS 凭证，用于图片存储 |
 
 ### 前端
@@ -98,6 +100,13 @@ npm install
 npm run serve           # 开发环境
 npm run build           # 生产构建（含预渲染）
 ```
+
+**前端环境变量**（`frontend/.env`）：
+| 变量 | 用途 |
+|------|------|
+| `VUE_APP_APP_PORT` | 开发环境下前端代理到后端 API 的端口 |
+| `VUE_APP_WS_PORT` | 前端使用的 WebSocket 服务端口 |
+| `VUE_APP_GSC_VERIFICATION` | 可选：Search Console HTML 验证码 |
 
 ### 数据库
 
@@ -174,9 +183,10 @@ node data/liujinqi.js
 - **面向爬虫的服务端渲染：** `backend/middleware/seoRender.js` 为关键落地路由返回完整 HTML。
 - **SPA 动态 Meta 管理：** `frontend/src/utils/seo.js` 在前端路由切换时更新 title、meta、canonical、hreflang。
 - **URL 规范化统一：** 详情页仅保留 `/home/detail/:id` 作为规范 URL；历史写法（`/home/detail?GOOD_ID=...`、`/home/details/:id`、`/home/details?GOOD_ID=...`）统一 `301` 到规范路径。
+- **拍卖列表 Query 规范化：** `/home/auction?category=...`、`/home/auction?state=...` 统一重定向到规范分类路径。
 - **前端路由状态码收敛：** 生产环境仅已知 SPA 路由返回 `index.html`，未知前端路径返回真实 `404`，避免软 404。
 - **构建期预渲染：** `frontend/vue.config.js` 在生产构建时预渲染 `/login` 和 `/signin`。
-- **CI 强制门禁：** `.github/workflows/seo-gate.yml` 同时执行结构化 SEO 校验和 Lighthouse CI。
+- **CI 门禁：** `.github/workflows/seo-gate.yml` 执行结构化 SEO 校验与 Lighthouse CI，并产出摘要和产物。
 
 ### 公开可抓取页面
 
@@ -223,22 +233,10 @@ node data/liujinqi.js
 
 ### SEO CI 门禁
 
-- 工作流：`.github/workflows/seo-gate.yml`
-- 结构化门禁脚本：`backend/scripts/seo-ci-gate.js`，校验项包括：
-  - robots 可访问且 sitemap 指令为绝对 URL
-  - sitemap 的 `<loc>` 为绝对 URL，且包含关键列表/分类路由
-  - 重定向跳转次数限制与 `404` 探测行为
-  - 历史详情/query URL 到 `/home/detail/:id` 的 canonical 重定向行为
-  - 未知前端路由的状态码（必须是 `404`）
-  - 列表页/分类页/详情页的 JSON-LD 存在性与 `schema.org` 有效性。
-- Lighthouse CI 配置：`.lighthouserc.json`
-  - 审计 URL 包含 `/login`、`/signin` 和 SEO 渲染的拍卖路由
-  - 强制阈值：`categories:seo >= 0.9`。
-- PR 可视化与阻断：
-  - 工作流会上传 `seo-ci.log` 与 `lhci.log` artifact
-  - 在 Job Summary 输出结构化报告
-  - 在 PR 下自动创建/更新固定评论，展示 SEO 与 Lighthouse 结果
-  - 任一门禁失败都会直接阻断合并
+- 工作流：`.github/workflows/seo-gate.yml`（`pull_request` + `push` 到 `main`）
+- 核心校验：robots/sitemap、canonical 重定向、404 行为、JSON-LD 有效性、Lighthouse SEO 分数（`>= 0.9`）
+- 若缺少 `secrets.MONGO_URL`，依赖后端的门禁会跳过
+- 每次执行都会产出可追踪信息：`seo-ci.log`、`lhci.log`、Job Summary、PR 评论
 
 本地检查：
 
@@ -249,16 +247,11 @@ npm run seo:ci
 
 ### Search Console Monitor
 
-- Workflow: `.github/workflows/search-console-monitor.yml`（每日定时 + 手动触发）
-- Script: `backend/scripts/search-console-monitor.js`
-  - 基于 URL Inspection API 检查 sitemap 中 URL 的索引状态
-  - 重点监控 `Soft 404` 与 `Duplicate without user-selected canonical`
-  - 自动输出 Markdown 报告并在超过阈值时让 workflow 失败
-- GitHub Actions 必需配置：
-  - `secrets.GSC_SERVICE_ACCOUNT_JSON`（服务账号 JSON；该账号需具备 Search Console 属性权限）
-  - `secrets.GSC_PROPERTY_URI`（例如 `sc-domain:example.com` 或 `https://example.com/`）
-  - `vars.SITE_URL`（线上站点 URL，用于拼接 `/all/sitemap.xml`）
-  - 可选：`vars.GSC_MONITOR_MAX_URLS`、`vars.GSC_SOFT404_THRESHOLD`、`vars.GSC_DUPLICATE_THRESHOLD`、`vars.GSC_SITEMAP_URL`
+- 工作流：`.github/workflows/search-console-monitor.yml`
+  - 触发方式：手动（`workflow_dispatch`）+ 每日定时（`15 3 * * *`, UTC）
+- 脚本：`backend/scripts/search-console-monitor.js`
+- 监控项：`Soft 404`、`Duplicate without user-selected canonical`（来源于 sitemap URL）
+- 必要配置：`GSC_SERVICE_ACCOUNT_JSON`、`GSC_PROPERTY_URI`、`SITE_URL`
 
 本地运行：
 
@@ -271,33 +264,40 @@ npm run seo:gsc-monitor
 
 ## 测试
 
-后端使用 **Jest** + **supertest**：
+后端测试使用 **Jest** + **supertest**（Node ESM 模式）。
 
 ```bash
 cd backend
 npm test
 ```
 
-SEO 健康检查：
+监听模式：
+
+```bash
+cd backend
+npm run test:watch
+```
+
+单独运行某个套件：
+
+```bash
+cd backend
+npm test -- --runTestsByPath __tests__/seo-routes.test.js
+```
+
+SEO 冒烟检查：
 
 ```bash
 cd backend
 npm run seo:health
-# 可选：开启前端路由检查（需启用生产静态资源服务）
+# 可选：开启前端路由检查
 # SEO_CHECK_FRONTEND=1 npm run seo:health
 ```
 
-所有测试文件位于 `backend/__tests__/`。
-
-| 测试文件 | 覆盖范围 |
-|----------|----------|
-| `rate-limit.test.js` | 限流中间件 — 验证超过阈值后返回 429 |
-| `judge.test.js` | 输入校验（手机号、邮箱、日期、QQ、微信） |
-| `base64.test.js` | Base64 编解码往返测试 |
-| `md5.test.js` | MD5 哈希确定性与加盐区分 |
-| `token.test.js` | JWT 创建、验证、过期 |
-| `promise.test.js` | `isFine()` Promise 结果处理工具 |
-| `middleware.test.js` | CORS 头、OPTIONS 处理、Token 认证 |
+当前 `backend/__tests__/` 主要覆盖：
+- 认证与安全：token、中间件/CORS、限流
+- 校验与工具：`judge`、`md5`、`base64`、`promise`
+- SEO 路由：`frontend-routes`、`seo-routes`
 
 ---
 

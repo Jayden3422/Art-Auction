@@ -58,7 +58,7 @@ An online art auction platform that provides a secure and efficient space for ar
 | Database | MongoDB |
 | SEO | Custom DOM-based meta management, JSON-LD, dynamic sitemap, prerendering |
 | Testing | Jest, supertest |
-| DevOps | Aliyun OSS (image hosting), compression (gzip), Content-Security-Policy |
+| DevOps | GitHub Actions (SEO Gate + GSC monitor), Aliyun OSS (image hosting), compression (gzip), Content-Security-Policy |
 | Visualization | ECharts, html2canvas, jsPDF, Web Workers |
 
 ## Installation and Setup
@@ -85,8 +85,10 @@ npm start               # Production
 | `WS_PORT` | WebSocket server port (default: 3001) |
 | `TRUST_PROXY` | Express proxy trust setting for correct client IP detection behind reverse proxies (e.g. `1`, `true`, `loopback`) |
 | `MONGO_URL` | MongoDB connection string |
+| `MONGO_DB_NAME` | MongoDB database name (default: `liujinqi`) |
 | `JWT_SALT` | JWT signing secret |
 | `SITE_URL` | Public site URL for sitemap generation |
+| `SEO_HOT_DETAIL_IDS` | Optional comma-separated detail IDs to keep in sitemap output |
 | `OSS_*` | Aliyun OSS credentials for image storage |
 
 ### Frontend
@@ -98,6 +100,13 @@ npm install
 npm run serve           # Development
 npm run build           # Production (includes prerendering)
 ```
+
+**Frontend environment variables** (`frontend/.env`):
+| Variable | Purpose |
+|----------|---------|
+| `VUE_APP_APP_PORT` | Backend API proxy target port in development |
+| `VUE_APP_WS_PORT` | WebSocket server port used by frontend |
+| `VUE_APP_GSC_VERIFICATION` | Optional Search Console HTML verification token |
 
 ### Database
 
@@ -174,9 +183,10 @@ This project keeps a Vue CLI SPA architecture while delivering crawlable HTML an
 - **Bot-oriented server rendering:** `backend/middleware/seoRender.js` returns full HTML for key landing routes.
 - **SPA meta management:** `frontend/src/utils/seo.js` updates title, meta tags, canonical, and hreflang during client navigation.
 - **Canonical URL normalization:** only `/home/detail/:id` is treated as canonical detail URL; legacy forms (`/home/detail?GOOD_ID=...`, `/home/details/:id`, `/home/details?GOOD_ID=...`) are redirected to canonical via `301`.
+- **Auction query canonicalization:** `/home/auction?category=...` and `/home/auction?state=...` are redirected to canonical category paths.
 - **Strict frontend-route status policy:** production fallback serves `index.html` only for known SPA routes; unknown frontend paths return real `404` to reduce soft-404 risk.
 - **Build-time prerender:** `frontend/vue.config.js` prerenders `/login` and `/signin` in production builds.
-- **CI enforcement:** `.github/workflows/seo-gate.yml` runs both structural checks and Lighthouse CI.
+- **CI enforcement:** `.github/workflows/seo-gate.yml` runs structural SEO checks plus Lighthouse CI with PR summaries/artifacts.
 
 ### Public Crawlable Pages
 
@@ -223,24 +233,12 @@ This project keeps a Vue CLI SPA architecture while delivering crawlable HTML an
 
 ### SEO CI Gate
 
-- Workflow: `.github/workflows/seo-gate.yml`
-- Structural gate script: `backend/scripts/seo-ci-gate.js` validates:
-  - robots reachability and absolute sitemap directive
-  - sitemap `<loc>` absolute URLs and required listing/category URLs
-  - redirect hop limits and `404` probe behavior
-  - canonical redirect behavior from legacy detail/query URLs to `/home/detail/:id`
-  - unknown frontend route status (must return `404`)
-  - JSON-LD existence and `schema.org` validity on listing/category/detail pages.
-- Lighthouse CI config: `.lighthouserc.json`
-  - audited URLs include `/login`, `/signin`, and SEO-rendered auction routes
-  - enforced threshold: `categories:seo >= 0.9`.
-- PR visibility:
-  - workflow uploads `seo-ci.log` + `lhci.log` artifacts
-  - workflow writes a markdown summary to the job summary
-  - workflow posts/updates a sticky PR comment with SEO + Lighthouse result snapshot
-  - merge is blocked when structural gate or Lighthouse gate fails
+- Workflow: `.github/workflows/seo-gate.yml` (`pull_request` + `push` to `main`)
+- Core checks: sitemap/robots correctness, canonical redirects, 404 behavior, JSON-LD validity, and Lighthouse SEO score (`>= 0.9`)
+- If `secrets.MONGO_URL` is missing, backend-dependent checks are skipped
+- Artifacts and summary are published on each run (`seo-ci.log`, `lhci.log`, job summary, PR comment)
 
-Local checks:
+Local run:
 
 ```bash
 cd backend
@@ -249,16 +247,11 @@ npm run seo:ci
 
 ### Search Console Monitor
 
-- Workflow: `.github/workflows/search-console-monitor.yml` (daily schedule + manual trigger)
+- Workflow: `.github/workflows/search-console-monitor.yml`
+  - triggers: manual (`workflow_dispatch`) + daily (`15 3 * * *`, UTC)
 - Script: `backend/scripts/search-console-monitor.js`
-  - inspects sitemap URLs via Search Console URL Inspection API
-  - tracks `Soft 404` and `Duplicate without user-selected canonical`
-  - uploads markdown report artifact and fails the workflow when thresholds are exceeded
-- Required secrets/variables for GitHub Actions:
-  - `secrets.GSC_SERVICE_ACCOUNT_JSON` (service account JSON; this account must have access to the Search Console property)
-  - `secrets.GSC_PROPERTY_URI` (for example `sc-domain:example.com` or `https://example.com/`)
-  - `vars.SITE_URL` (public site URL used to resolve `/all/sitemap.xml`)
-  - optional: `vars.GSC_MONITOR_MAX_URLS`, `vars.GSC_SOFT404_THRESHOLD`, `vars.GSC_DUPLICATE_THRESHOLD`, `vars.GSC_SITEMAP_URL`
+- Monitors `Soft 404` and `Duplicate without user-selected canonical` from sitemap URLs
+- Required: `GSC_SERVICE_ACCOUNT_JSON`, `GSC_PROPERTY_URI`, `SITE_URL`
 
 Local run:
 
@@ -271,36 +264,44 @@ npm run seo:gsc-monitor
 
 ## Testing
 
-Backend uses **Jest** + **supertest**:
+Backend tests use **Jest** + **supertest** (Node ESM mode).
+
+Run all backend tests:
 
 ```bash
 cd backend
 npm test
 ```
 
-SEO surface checks:
+Watch mode:
+
+```bash
+cd backend
+npm run test:watch
+```
+
+Run one suite:
+
+```bash
+cd backend
+npm test -- --runTestsByPath __tests__/seo-routes.test.js
+```
+
+SEO smoke checks:
 
 ```bash
 cd backend
 npm run seo:health
-# Optional frontend route checks (requires production static serving):
+# optional frontend route checks:
 # SEO_CHECK_FRONTEND=1 npm run seo:health
 ```
 
-All test files are in `backend/__tests__/`.
-
-| Test File | Coverage |
-|-----------|----------|
-| `rate-limit.test.js` | Rate limiting middleware — verifies 429 after threshold |
-| `judge.test.js` | Input validation (phone, email, date, QQ, WeChat) |
-| `base64.test.js` | Base64 encode/decode round-trip |
-| `md5.test.js` | MD5 hash determinism and salt differentiation |
-| `token.test.js` | JWT creation, verification, expiry |
-| `promise.test.js` | `isFine()` utility for Promise result handling |
-| `middleware.test.js` | CORS headers, OPTIONS handling, token auth |
+Current suites in `backend/__tests__/` cover:
+- auth/token, middleware/CORS, rate limiting
+- validation and utility modules (`judge`, `md5`, `base64`, `promise`)
+- SEO/canonical route behavior (`frontend-routes`, `seo-routes`)
 
 ---
-
 ## System Architecture
 
 Permission-based architecture with JWT tokens:
@@ -387,3 +388,4 @@ Administrators manage artworks: publish, edit, delete, set auction times and rul
 
 | ![By status](README.assets/Snipaste_2025-09-05_21-11-55.png) | ![By category](README.assets/Snipaste_2025-09-05_21-15-21.png) |
 |---|---|
+
