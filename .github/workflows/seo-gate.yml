@@ -50,9 +50,30 @@ jobs:
         run: |
           nohup npm run start > ../tmp-backend.log 2>&1 &
           echo $! > ../tmp-backend.pid
+          sleep 2
+          if ! kill -0 "$(cat ../tmp-backend.pid)" 2>/dev/null; then
+            echo "Backend process exited immediately after startup."
+            if [ -f ../tmp-backend.log ]; then
+              echo "==== backend startup log ===="
+              cat ../tmp-backend.log
+            fi
+            exit 1
+          fi
 
       - name: Wait for backend
-        run: npx wait-on@7.2.0 http://127.0.0.1:3000/robots.txt
+        run: |
+          set +e
+          npx wait-on@7.2.0 --timeout 120000 --interval 1000 http://127.0.0.1:3000/robots.txt
+          wait_status=$?
+          set -e
+          if [ "$wait_status" != "0" ]; then
+            echo "Backend did not become ready at http://127.0.0.1:3000/robots.txt within 120s"
+            if [ -f tmp-backend.log ]; then
+              echo "==== backend startup log ===="
+              cat tmp-backend.log
+            fi
+            exit "$wait_status"
+          fi
 
       - name: Run SEO structural gate
         id: seo_gate
