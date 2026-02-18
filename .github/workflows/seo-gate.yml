@@ -62,8 +62,11 @@ jobs:
           SEO_CHECK_BASE_URL: http://127.0.0.1:3000
         run: |
           set -o pipefail
+          set +e
           npm run seo:ci 2>&1 | tee ../seo-ci.log
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          exit_code=$?
+          set -e
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
           exit 0
 
       - name: Run Lighthouse CI gate
@@ -73,8 +76,11 @@ jobs:
           LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
         run: |
           set -o pipefail
+          set +e
           npx @lhci/cli@0.15.1 autorun --config=.lighthouserc.json 2>&1 | tee lhci.log
-          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          exit_code=$?
+          set -e
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
           exit 0
 
       - name: Build SEO report
