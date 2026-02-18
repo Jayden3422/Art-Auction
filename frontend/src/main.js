@@ -6,14 +6,18 @@ import router from './router'
 import store from './store'
 import 'ant-design-vue/dist/antd.css';
 import { updateRouteMeta } from './utils/seo';
+import { detectInitialLocale, normalizeLocale, saveLocale, applyDocumentLang } from './utils/i18n';
 import Cookie from "js-cookie";
 import { jwtDecode } from 'jwt-decode'
 const api = require('./utils/api')
 import en from './locales/en.js'
 import zh from './locales/zh.js'
 
+const initialLocale = detectInitialLocale();
+
 const i18n = createI18n({
-    locale: 'en',
+    locale: initialLocale,
+    fallbackLocale: 'en',
     messages: {
         en,
         zh
@@ -22,6 +26,22 @@ const i18n = createI18n({
 
 const app = createApp(App);
 app.use(i18n).use(store).use(router).use(Antd).mount('#app')
+saveLocale(initialLocale);
+applyDocumentLang(initialLocale);
+
+function getCurrentLocale() {
+    return typeof i18n.global.locale === 'string' ? i18n.global.locale : i18n.global.locale.value;
+}
+
+function setCurrentLocale(locale) {
+    const normalized = normalizeLocale(locale);
+    if (!normalized) return;
+    if (typeof i18n.global.locale === 'string') {
+        i18n.global.locale = normalized;
+    } else {
+        i18n.global.locale.value = normalized;
+    }
+}
 
 const PUBLIC_CONTENT_PATHS = new Set([
     '/home',
@@ -36,6 +56,13 @@ function isPublicContentPath(pathname) {
 }
 
 router.beforeEach(async (to, from, next) => {
+    const queryLocale = normalizeLocale(to.query?.lang);
+    if (queryLocale && queryLocale !== getCurrentLocale()) {
+        setCurrentLocale(queryLocale);
+        saveLocale(queryLocale);
+        applyDocumentLang(queryLocale);
+    }
+
     let loadingBar = document.getElementById('global-loading')
     if (!loadingBar) {
         loadingBar = document.createElement('div')
@@ -82,7 +109,7 @@ router.beforeEach(async (to, from, next) => {
     }
 
     if (!myPids.includes(to.meta.pid)) {
-        alert('You do not have permission to access');
+        alert(i18n.global.t('message.noPermission'));
         next(from.path || '/home/auction');
         return;
     }

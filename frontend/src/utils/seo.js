@@ -1,10 +1,36 @@
 const SITE_NAME = 'Jayden Art Auction'
-const DEFAULT_DESCRIPTION = 'Jayden Art Auction - Professional online art auction platform featuring paintings, calligraphy, ceramics, sculptures, metalwork, and rare stones.'
+const DEFAULT_DESCRIPTION = {
+    en: 'Jayden Art Auction - Professional online art auction platform featuring paintings, calligraphy, ceramics, sculptures, metalwork, and rare stones.',
+    zh: 'Jayden艺术品竞拍平台 - 专业线上艺术品拍卖平台，涵盖书画、陶瓷、雕塑、金属工艺与奇石等品类。'
+}
 const DEFAULT_KEYWORDS = 'art auction,online bidding,painting auction,ceramic auction,sculpture auction,art trading'
 const AUCTION_CATEGORY_BY_STATE = {
     '0': 'upcoming',
     '1': 'live',
     '2': 'ended'
+}
+
+function normalizeSeoLocale(localeLike) {
+    const value = String(localeLike || '').toLowerCase()
+    return value.startsWith('zh') ? 'zh' : 'en'
+}
+
+function resolveSeoLocale(route) {
+    const fromQuery = normalizeSeoLocale(route?.query?.lang)
+    if (route?.query?.lang) {
+        return fromQuery
+    }
+    const htmlLang = typeof document !== 'undefined'
+        ? document.documentElement?.getAttribute('lang')
+        : ''
+    return normalizeSeoLocale(htmlLang)
+}
+
+function resolveLocalizedValue(value, locale) {
+    if (!value || typeof value !== 'object') {
+        return value
+    }
+    return value[locale] || value.en || Object.values(value)[0]
 }
 
 /**
@@ -107,8 +133,9 @@ export function setHreflang(path) {
  * @param {object} route - Vue router target route
  */
 export function updateRouteMeta(meta, route) {
-    const title = meta.title || SITE_NAME
-    const description = meta.description || DEFAULT_DESCRIPTION
+    const locale = resolveSeoLocale(route)
+    const title = resolveLocalizedValue(meta.title, locale) || SITE_NAME
+    const description = resolveLocalizedValue(meta.description, locale) || resolveLocalizedValue(DEFAULT_DESCRIPTION, locale)
     const keywords = meta.keywords || DEFAULT_KEYWORDS
     const canonicalPath = normalizeCanonicalPath(route)
 
@@ -211,25 +238,27 @@ export function buildAuctionJsonLd(goodInfo) {
 /**
  * Build website-level JSON-LD structured data (Schema.org WebSite)
  */
-export function buildWebsiteJsonLd() {
+export function buildWebsiteJsonLd(locale = 'en') {
+    const seoLocale = normalizeSeoLocale(locale)
     return {
         '@context': 'https://schema.org',
         '@type': 'WebSite',
         'name': SITE_NAME,
-        'description': DEFAULT_DESCRIPTION,
-        'inLanguage': 'en'
+        'description': resolveLocalizedValue(DEFAULT_DESCRIPTION, seoLocale),
+        'inLanguage': seoLocale === 'zh' ? 'zh-CN' : 'en'
     }
 }
 
 /**
  * Build organization JSON-LD structured data (Schema.org Organization)
  */
-export function buildOrganizationJsonLd() {
+export function buildOrganizationJsonLd(locale = 'en') {
+    const seoLocale = normalizeSeoLocale(locale)
     return {
         '@context': 'https://schema.org',
         '@type': 'Organization',
         'name': SITE_NAME,
-        'description': DEFAULT_DESCRIPTION,
+        'description': resolveLocalizedValue(DEFAULT_DESCRIPTION, seoLocale),
         'url': window.location.origin
     }
 }
@@ -265,11 +294,12 @@ export function buildBreadcrumbJsonLd(items = []) {
  * Build ItemList JSON-LD structured data for auction listing pages
  * @param {Array} items - Array of goods objects
  */
-export function buildItemListJsonLd(items) {
+export function buildItemListJsonLd(items, locale = 'en') {
+    const seoLocale = normalizeSeoLocale(locale)
     return {
         '@context': 'https://schema.org',
         '@type': 'ItemList',
-        'name': 'Auction Listings',
+        'name': seoLocale === 'zh' ? '拍卖列表' : 'Auction Listings',
         'numberOfItems': items.length,
         'itemListElement': items.slice(0, 50).map((item, index) => ({
             '@type': 'ListItem',

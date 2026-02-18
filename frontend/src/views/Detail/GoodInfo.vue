@@ -40,7 +40,7 @@
                     <a-select-option
                         v-for="(item, index) in typeList"
                         :value="index"
-                    >{{item}}</a-select-option>
+                    >{{ localizeCategory(item) }}</a-select-option>
                 </a-select>
             </a-form-item>
             <a-form-item
@@ -73,18 +73,14 @@
                 name="START_TIME"
                 :rules="[{ required: true, message: t('message.selectStartTime') }]"
             >
-                <a-config-provider :locale="locale">
-                    <a-date-picker v-model:value="formState.START_TIME" showTime />
-                </a-config-provider>
+                <a-date-picker v-model:value="formState.START_TIME" showTime />
             </a-form-item>
             <a-form-item
                 :label="t('message.auctionEndTime')"
                 name="END_TIME"
                 :rules="[{ required: true, message: t('message.selectEndTime') }]"
             >
-                <a-config-provider :locale="locale">
-                    <a-date-picker v-model:value="formState.END_TIME" showTime />
-                </a-config-provider>
+                <a-date-picker v-model:value="formState.END_TIME" showTime />
             </a-form-item>
             <a-form-item :label="t('message.picture')">
                 <a-upload
@@ -131,12 +127,10 @@ import router from "@/router";
 import store from "@/store";
 import { useStore } from 'vuex';
 import dayjs from 'dayjs';
-import 'dayjs/locale/zh-cn';
-import locale from 'ant-design-vue/es/date-picker/locale/zh_CN';
-dayjs.locale('zh-cn');
 import Cookie from "js-cookie";
 import { message } from 'ant-design-vue';
 import { useI18n } from 'vue-i18n';
+import { localizeCategoryLabel } from '@/utils/dictionaryI18n';
 export default defineComponent({
     components: {
         Identify,
@@ -357,10 +351,8 @@ export default defineComponent({
         }
         return {
             typeList,
+            localizeCategory: (label) => localizeCategoryLabel(label, t),
             isAddGood,
-            // 选择日期
-            locale,
-            dayjs,
             formState,
             formRef,
             rules,

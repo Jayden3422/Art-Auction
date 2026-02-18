@@ -8,7 +8,7 @@
             <a-select-option
                 v-for="(item, index) in typeList"
                 :value="index"
-            >{{item}}</a-select-option>
+            >{{ localizeCategory(item) }}</a-select-option>
         </a-select>
         <div v-if="List.length" class="goodsList">
             <div v-for="(item, index) in List" class="card" @click="detail(index)">
@@ -47,6 +47,7 @@ import router from '@/router';
 import { jwtDecode } from "jwt-decode";
 import Cookie from 'js-cookie';
 import { useI18n } from 'vue-i18n';
+import { localizeCategoryLabel } from '@/utils/dictionaryI18n';
 export default {
     setup() {
         const { t } = useI18n();
@@ -95,6 +96,7 @@ export default {
             ...toRefs(res),
             timeList,
             typeList,
+            localizeCategory: (label) => localizeCategoryLabel(label, t),
             handleChange,
             value,
             detail,

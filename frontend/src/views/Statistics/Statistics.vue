@@ -53,7 +53,7 @@
                         <tbody>
                             <tr class="basics-tr" v-for="(item, index) in typeList">
                                 <td>{{ $t('message.category') }}{{index + 1}}</td>
-                                <td>{{item}}</td>
+                                <td>{{ localizeCategory(item) }}</td>
                             </tr>
                         </tbody>
                         <thead>
@@ -253,6 +253,7 @@ import { outputPDF } from "../../components/pdf.js"
 import { message } from 'ant-design-vue';
 import { fullDate } from "../../components/date";
 import { useStore } from 'vuex';
+import { localizeCategoryLabel } from '@/utils/dictionaryI18n';
 
 export default {
     name: "outputPDF",
@@ -292,6 +293,9 @@ export default {
         });
     },
     methods: {
+        localizeCategory(label) {
+            return localizeCategoryLabel(label, this.$t);
+        },
         drawEcharts() {
             const a4main = document.querySelector('.a4main');
             a4main.querySelector('#a4Report').innerText = this.$store.state.userForm.ADMIN_ID? this.$store.state.userForm.ADMIN_ID: this.$store.state.userForm.USER_ID;

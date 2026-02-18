@@ -53,8 +53,14 @@ const routes = [
         name: 'auction',
         component: () => import('../views/Auction/Auction.vue'),
         meta: {
-            title: "Auction Listings - Jayden Art Auction",
-            description: "Browse all auction items including upcoming, live, and ended art auctions.",
+            title: {
+                en: "Auction Listings - Jayden Art Auction",
+                zh: "拍卖列表 - Jayden艺术品竞拍平台"
+            },
+            description: {
+                en: "Browse all auction items including upcoming, live, and ended art auctions.",
+                zh: "浏览全部拍卖商品，包括即将开始、进行中和已结束的拍卖。"
+            },
             keywords: "auction listings,live auction,art bidding,paintings,ceramics,sculptures",
             pid: 1
         }
@@ -64,8 +70,14 @@ const routes = [
         name: 'auction-upcoming',
         component: () => import('../views/Auction/Auction.vue'),
         meta: {
-            title: "Upcoming Art Auctions - Jayden Art Auction",
-            description: "Preview upcoming art auctions before bidding starts.",
+            title: {
+                en: "Upcoming Art Auctions - Jayden Art Auction",
+                zh: "即将拍卖 - Jayden艺术品竞拍平台"
+            },
+            description: {
+                en: "Preview upcoming art auctions before bidding starts.",
+                zh: "查看即将开始的拍卖场次与艺术品。"
+            },
             keywords: "upcoming auction,art lots preview,online bidding",
             pid: 1
         }
@@ -75,8 +87,14 @@ const routes = [
         name: 'auction-live',
         component: () => import('../views/Auction/Auction.vue'),
         meta: {
-            title: "Live Art Auctions - Jayden Art Auction",
-            description: "Join live art auctions and place bids in real time.",
+            title: {
+                en: "Live Art Auctions - Jayden Art Auction",
+                zh: "正在拍卖 - Jayden艺术品竞拍平台"
+            },
+            description: {
+                en: "Join live art auctions and place bids in real time.",
+                zh: "参与实时竞拍并在线出价。"
+            },
             keywords: "live auction,real-time bidding,art auction",
             pid: 1
         }
@@ -86,8 +104,14 @@ const routes = [
         name: 'auction-ended',
         component: () => import('../views/Auction/Auction.vue'),
         meta: {
-            title: "Ended Art Auctions - Jayden Art Auction",
-            description: "Browse recently ended auctions and final results.",
+            title: {
+                en: "Ended Art Auctions - Jayden Art Auction",
+                zh: "已结束拍卖 - Jayden艺术品竞拍平台"
+            },
+            description: {
+                en: "Browse recently ended auctions and final results.",
+                zh: "浏览近期结束的拍卖与成交结果。"
+            },
             keywords: "ended auction,auction result,art auction history",
             pid: 1
         }

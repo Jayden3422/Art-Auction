@@ -1,6 +1,6 @@
 <template>
     <div>
-        <h1 class="pageTitle">Auction Listings</h1>
+        <h1 class="pageTitle">{{ $t('message.auctionListings') }}</h1>
         <a-alert
             v-if="isErr"
             :message="t('message.dataFail')"

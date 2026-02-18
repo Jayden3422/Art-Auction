@@ -11,7 +11,7 @@
           <router-link v-for="(item, index) in routesList" :to="item.path" custom v-slot="{ navigate }">
             <a-menu-item :key="item.path" @click="navigate" @keypress.enter="navigate" role="link">
               <Icon :id="item.icon"/>
-              <span>{{item.title}}</span>
+              <span>{{ item.titleKey ? t(item.titleKey) : item.title }}</span>
             </a-menu-item>
           </router-link>
         </template>
@@ -27,7 +27,7 @@
         <menu-fold-outlined v-else class="trigger" @click="() => (collapsed = !collapsed)" />
         <a-button v-if="isLoggedIn" @click="out">{{ $t('message.loginOut') }}</a-button>
         <router-link v-else to="/login"><a-button type="primary">{{ $t('message.login') }}</a-button></router-link>
-        <a-button @click="switchLanguage">中文/English</a-button>
+        <a-button @click="switchLanguage">{{ $t('message.switchLanguage') }}</a-button>
       </a-layout-header>
       <a-layout-content
         :style="{ margin: '24px 16px', padding: '24px', background: '#fff', minHeight: '280px' }"
@@ -42,14 +42,16 @@
 <script>
 import { MenuUnfoldOutlined, MenuFoldOutlined } from '@ant-design/icons-vue';
 import router from '@/router';
+import { useRoute } from 'vue-router';
 import Cookie from 'js-cookie';
 import { defineComponent, reactive, ref, toRefs } from 'vue';
 import Icon from "../../components/Icon.vue";
 import { jwtDecode } from "jwt-decode";
 import { getAPI } from '@/utils/api';
-import { message } from 'ant-design-vue';
 import { useStore } from 'vuex';
 import { useI18n } from 'vue-i18n'
+import { saveLocale, applyDocumentLang } from '@/utils/i18n';
+import { resolveMenuTitleKey } from '@/utils/dictionaryI18n';
 export default defineComponent({
   components: {
     Icon,
@@ -57,8 +59,9 @@ export default defineComponent({
     MenuFoldOutlined
   },
   async setup() {
-    const { t } = useI18n();
+    const { locale, t } = useI18n();
     const store = useStore();
+    const route = useRoute();
 
     // Auth-optional: gracefully handle missing token for anonymous users
     const token = Cookie.get('token');
@@ -76,28 +79,53 @@ export default defineComponent({
     var list = reactive({
       routesList: []
     })
+
+    function normalizeMenuItem(item) {
+      const titleKey = resolveMenuTitleKey(item);
+      if (!titleKey) return item;
+      return {
+        ...item,
+        titleKey,
+      };
+    }
     // 退出登录
     const out = () => {
       Cookie.remove("token");
       router.go(0);
     }
 
-    const { locale } = useI18n()
-    const switchLanguage = () => {
-      locale.value = locale.value === 'en' ? 'zh' : 'en'
+    const switchLanguage = async () => {
+      const nextLocale = locale.value === 'en' ? 'zh' : 'en';
+      locale.value = nextLocale;
+      saveLocale(nextLocale);
+      applyDocumentLang(nextLocale);
+      try {
+        await router.replace({
+          path: route.path,
+          query: {
+            ...route.query,
+            lang: nextLocale,
+          },
+          hash: route.hash,
+        });
+      } catch (error) {
+        // ignore duplicated navigation
+      }
     }
     try {
       const res = await getAPI("/all/getDics");
       store.commit("setClassList", JSON.parse(res.data[1].VALUE));
       if (isLoggedIn) {
-        list.routesList = JSON.parse(res.data[0].VALUE).filter(r => pids.includes(r.icon));
+        list.routesList = JSON.parse(res.data[0].VALUE)
+          .filter(r => pids.includes(r.icon))
+          .map(normalizeMenuItem);
       } else {
         // Anonymous users: show only auction listing
-        list.routesList = [{ path: '/home/auction', title: 'Auctions', icon: 1 }];
+        list.routesList = [{ path: '/home/auction', titleKey: 'message.productInterface', icon: 1 }];
       }
     } catch (e) {
       // Fallback for anonymous or error
-      list.routesList = [{ path: '/home/auction', title: 'Auctions', icon: 1 }];
+      list.routesList = [{ path: '/home/auction', titleKey: 'message.productInterface', icon: 1 }];
     }
     return {
       ...toRefs(list),

@@ -42,7 +42,7 @@ export default {
     ],
     emits: ["isErr"],
     async setup(props, context) {
-        const { t } = useI18n();
+        const { t, locale } = useI18n();
         let List = reactive([]);
 
         if (props.permission.per == 1) {
@@ -103,7 +103,7 @@ export default {
         }
 
         if (List.length > 0) {
-            setJsonLd(buildItemListJsonLd(List));
+            setJsonLd(buildItemListJsonLd(List, locale.value));
         }
 
         const timeList = reactive([]);

@@ -1,5 +1,5 @@
 <template>
-    <a-spin tip="Loading..." :spinning="spinning">
+    <a-spin :tip="t('message.loading')" :spinning="spinning">
         <div class="detail">
             <a-alert
                 v-if="isErr"
@@ -44,7 +44,7 @@
                         {{ time.START_TIME }} ~ {{ time.END_TIME }}
                     </div>
                     <div>
-                        <a-tag color="green">{{typeList[info.CLASS]}}</a-tag>
+                        <a-tag color="green">{{ localizeCategory(typeList[info.CLASS]) }}</a-tag>
                         <a-tag color="blue" v-if="info.STEP">{{ $t('message.priceStep') }}￥{{info.STEP}}</a-tag>
                         <a-tag color="default">
                             <template #icon>
@@ -135,7 +135,7 @@
 </template>
 
 <script>
-import { reactive, ref, toRefs } from "@vue/reactivity";
+import { reactive, ref, toRefs, computed } from "@vue/reactivity";
 import { useRoute } from "vue-router";
 import { useTimer } from "vue-timer-hook";
 import { onMounted, watchEffect } from "@vue/runtime-core";
@@ -150,6 +150,7 @@ import { useWebSocket } from '../../ws/hooks';
 import { message } from 'ant-design-vue';
 import { AuditOutlined } from '@ant-design/icons-vue';
 import { useI18n } from 'vue-i18n';
+import { localizeCategoryLabel } from '@/utils/dictionaryI18n';
 import { setMetaTag, setJsonLd, buildAuctionJsonLd, buildBreadcrumbJsonLd } from '../../utils/seo';
 export default {
     components: {
@@ -188,8 +189,8 @@ export default {
             setJsonLd([
                 buildAuctionJsonLd(List.info),
                 buildBreadcrumbJsonLd([
-                    { name: 'Home', path: '/home/auction' },
-                    { name: 'Auction Listings', path: '/home/auction' },
+                    { name: t('message.home'), path: '/home/auction' },
+                    { name: t('message.auctionListings'), path: '/home/auction' },
                     { name: List.info.NAME, path: `/home/detail/${List.info.GOOD_ID}` }
                 ])
             ]);
@@ -259,9 +260,9 @@ export default {
             }
         });
         // 表格
-        const columns = [
+        const columns = computed(() => [
             {
-                title: "ID",
+                title: t('message.userID'),
                 dataIndex: "INFO_ID",
                 width: 150,
             },
@@ -271,7 +272,7 @@ export default {
                 width: 150,
             },
             {
-                title: t('message.bidPrice') + '￥',
+                title: `${t('message.bidPrice')}￥`,
                 dataIndex: "PRICE",
                 width: 150,
             },
@@ -280,7 +281,7 @@ export default {
                 customRender: ({ record }) =>
                     formatDate(new Date(record.TIME).valueOf()),
             },
-        ];
+        ]);
         const data = reactive({
             res: [],
         });
@@ -370,6 +371,7 @@ export default {
         })
         return {
             typeList,
+            localizeCategory: (label) => localizeCategoryLabel(label, t),
             isErr,
             ...toRefs(List),
             time,

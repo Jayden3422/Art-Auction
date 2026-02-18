@@ -162,36 +162,36 @@ export default {
         }
         let validateEmail = async (_rule, value) => {
             if (!value) {
-                return Promise.reject("请输入邮箱");
+                return Promise.reject(t('message.enterEmail'));
             }
             if (!judge.isMail(value)) {
-                return Promise.reject("请输入正确格式的邮箱");
+                return Promise.reject(t('message.enterRightEmail'));
             }
         };
         let validatePhone = async (_rule, value) => {
             if (!value) {
-                return Promise.reject("请输入手机号");
+                return Promise.reject(t('message.enterPhoneNumber'));
             }
             if (!judge.isPhone(value)) {
-                return Promise.reject("请输入正确格式的手机号");
+                return Promise.reject(t('message.enterRightPhoneNumber'));
             }
         };
         let checkAge = async (_rule, value) => {
             if (!value) {
-                return Promise.reject("请输入验证码");
+                return Promise.reject(t('message.enterVerification'));
             }
             if (!Number.isInteger(value)) {
-                return Promise.reject("请输入数字");
+                return Promise.reject(t('message.enterNumber'));
             }
             if (value != identifyCode.value) {
-                return Promise.reject("请输入正确的验证码");
+                return Promise.reject(t('message.enterRightVerification'));
             } else {
                 return Promise.resolve();
             }
         };
         let validatePass = async (_rule, value) => {
             if (value === "") {
-                return Promise.reject("请输入密码");
+                return Promise.reject(t('message.enterPassword'));
             } else {
                 if (formState.checkPass !== "") {
                     formRef.value.validateFields("checkPass");
@@ -201,9 +201,9 @@ export default {
         };
         let validatePass2 = async (_rule, value) => {
             if (value === "") {
-                return Promise.reject("请重新输入密码");
+                return Promise.reject(t('message.reenterPassword'));
             } else if (value !== formState.pass) {
-                return Promise.reject("两次密码不匹配！");
+                return Promise.reject(t('message.passwordsNotMatch'));
             } else {
                 return Promise.resolve();
             }

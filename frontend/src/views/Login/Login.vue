@@ -2,6 +2,9 @@
     <div>
         <section class="forms-section">
             <h1 class="section-title">{{ $t('message.name') }}</h1>
+            <div class="language-switch">
+                <a-button size="small" @click="switchLanguage">{{ $t('message.switchLanguage') }}</a-button>
+            </div>
             <div class="forms">
                 <div class="form-wrapper is-active">
                     <button type="button" class="switcher switcher-login" @click="isAct = !isAct">
@@ -48,7 +51,7 @@
                                 <div class="login-form-wrap">
                                     <a-form-item name="remember" no-style>
                                         <a-checkbox @change="isRemember()"
-                                            >15 {{ $t('message.freeLogin') }}</a-checkbox
+                                            >{{ $t('message.rememberFor15Days') }}</a-checkbox
                                         >
                                         <router-link to="/signin">{{ $t('message.register') }}</router-link>
                                     </a-form-item>
@@ -100,7 +103,7 @@
                                 <div class="login-form-wrap">
                                     <a-form-item name="remember" no-style>
                                         <a-checkbox @change="isRemember()"
-                                            >15 {{ $t('message.freeLogin') }}</a-checkbox
+                                            >{{ $t('message.rememberFor15Days') }}</a-checkbox
                                         >
                                     </a-form-item>
                                 </div>
@@ -127,17 +130,38 @@ import { UserOutlined, LockOutlined } from "@ant-design/icons-vue";
 import { message } from 'ant-design-vue';
 import Cookie from "js-cookie";
 import router from "@/router";
+import { useRoute } from 'vue-router';
 import store from "@/store";
 const api = require("../../utils/api");
 import md5 from '../../components/md5';
 import { useI18n } from 'vue-i18n';
+import { saveLocale, applyDocumentLang } from '@/utils/i18n';
 export default {
     components: {
         UserOutlined,
         LockOutlined,
     },
     setup() {
-        const { t } = useI18n();
+        const { locale, t } = useI18n();
+        const route = useRoute();
+        const switchLanguage = async () => {
+            const nextLocale = locale.value === 'en' ? 'zh' : 'en';
+            locale.value = nextLocale;
+            saveLocale(nextLocale);
+            applyDocumentLang(nextLocale);
+            try {
+                await router.replace({
+                    path: route.path,
+                    query: {
+                        ...route.query,
+                        lang: nextLocale,
+                    },
+                    hash: route.hash,
+                });
+            } catch (error) {
+                // ignore duplicated navigation
+            }
+        };
         // 动画
         onMounted(() => {
             nextTick(() => {
@@ -188,7 +212,7 @@ export default {
                             }
                             router.go(0);
                         } else {
-                            message.error('Incorrect account or password');
+                            message.error(t('message.invalidCredentials'));
                         }
                     })
                     .catch((err) => {
@@ -219,7 +243,7 @@ export default {
                                 }
                                 router.go(0);
                             } else {
-                                message.error('Incorrect account or password');
+                                message.error(t('message.invalidCredentials'));
                             }
                         })
                         .catch((err) => {
@@ -248,7 +272,7 @@ export default {
                                 }
                                 router.go(0);
                             } else {
-                                message.error('Incorrect account or password');
+                                message.error(t('message.invalidCredentials'));
                             }
                         })
                         .catch((err) => {
@@ -274,6 +298,7 @@ export default {
             onFinish,
             onFinishFailed,
             disabled,
+            switchLanguage,
             t
         };
     },
@@ -282,4 +307,8 @@ export default {
 
 <style scoped>
 @import url("./Login.css");
+.language-switch {
+    margin-bottom: 16px;
+    text-align: center;
+}
 </style>

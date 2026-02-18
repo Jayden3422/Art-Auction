@@ -30,7 +30,7 @@
 </template>
 <script>
 import store from '@/store';
-import { reactive, ref, createVNode } from 'vue';
+import { reactive, ref, createVNode, computed } from 'vue';
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue';
 import { Modal } from 'ant-design-vue';
 const api = require('../utils/api')
@@ -65,7 +65,7 @@ async setup(props, context) {
 
   const confirm = (record) => {
     Modal.confirm({
-      title: 'Confirm',
+      title: t('message.confirm'),
       icon: createVNode(ExclamationCircleOutlined),
       content: t('message.deletingData'),
       okText: t('message.confirm'),
@@ -76,7 +76,7 @@ async setup(props, context) {
     });
   };
 
-  const columns = [
+  const columns = computed(() => [
     {
       title: t('message.serialNumber'),
       key: '0',
@@ -86,7 +86,7 @@ async setup(props, context) {
       customRender: (text) => text.index + 1
     },
     {
-      title: 'ID',
+      title: t('message.userID'),
       key: '1',
       dataIndex: 'SELLER_ID',
       width: 15,
@@ -126,9 +126,6 @@ async setup(props, context) {
       title: t('message.password'),
       key: '5',
       dataIndex: 'SELLER_PASS',
-      // customRender: (text: any) => {
-      //   console.log(text.record.password)
-      // },
       width: 20
     },
     {
@@ -144,7 +141,7 @@ async setup(props, context) {
       fixed: 'right',
       slots: { customRender: 'edit' },
     },
-  ];
+  ]);
   function edit(e){
     store.commit('isUpdateSeller')
     store.commit('setSellerForm', e)
