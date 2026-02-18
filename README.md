@@ -248,7 +248,8 @@ npm run seo:ci
 ### Search Console Monitor
 
 - Workflow: `.github/workflows/search-console-monitor.yml`
-  - triggers: manual (`workflow_dispatch`) + daily (`15 3 * * *`, UTC)
+  - triggers: manual (`workflow_dispatch`)
+  - note: scheduled trigger (`15 3 * * *`, UTC) is temporarily disabled
 - Script: `backend/scripts/search-console-monitor.js`
 - Monitors `Soft 404` and `Duplicate without user-selected canonical` from sitemap URLs
 - Required: `GSC_SERVICE_ACCOUNT_JSON`, `GSC_PROPERTY_URI`, `SITE_URL`

@@ -2,8 +2,8 @@ name: Search Console Monitor
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '15 3 * * *'
+  # schedule:
+  #   - cron: '15 3 * * *' # temporarily disabled
 
 permissions:
   contents: read

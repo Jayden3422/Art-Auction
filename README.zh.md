@@ -248,7 +248,8 @@ npm run seo:ci
 ### Search Console Monitor
 
 - 工作流：`.github/workflows/search-console-monitor.yml`
-  - 触发方式：手动（`workflow_dispatch`）+ 每日定时（`15 3 * * *`, UTC）
+  - 触发方式：手动（`workflow_dispatch`）
+  - 说明：定时触发（`15 3 * * *`, UTC）已临时关闭
 - 脚本：`backend/scripts/search-console-monitor.js`
 - 监控项：`Soft 404`、`Duplicate without user-selected canonical`（来源于 sitemap URL）
 - 必要配置：`GSC_SERVICE_ACCOUNT_JSON`、`GSC_PROPERTY_URI`、`SITE_URL`
