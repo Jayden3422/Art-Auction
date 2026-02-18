@@ -24,6 +24,19 @@ jobs:
         with:
           node-version: 20
 
+      - name: Check backend secrets availability
+        id: secrets
+        run: |
+          if [ -n "$MONGO_URL" ]; then
+            echo "has_db=true" >> "$GITHUB_OUTPUT"
+            echo "Backend secrets found — SEO and LHCI checks will run."
+          else
+            echo "has_db=false" >> "$GITHUB_OUTPUT"
+            echo "No MONGO_URL secret configured — skipping backend-dependent SEO/LHCI checks."
+          fi
+        env:
+          MONGO_URL: ${{ secrets.MONGO_URL }}
+
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
@@ -40,6 +53,7 @@ jobs:
         run: npm run build
 
       - name: Start backend server
+        if: steps.secrets.outputs.has_db == 'true'
         working-directory: backend
         env:
           NODE_ENV: production
@@ -47,6 +61,9 @@ jobs:
           WS_PORT: 3001
           SITE_URL: http://127.0.0.1:3000
           TRUST_PROXY: loopback
+          MONGO_URL: ${{ secrets.MONGO_URL }}
+          MONGO_DB_NAME: ${{ secrets.MONGO_DB_NAME }}
+          JWT_SALT: ${{ secrets.JWT_SALT }}
         run: |
           nohup npm run start > ../tmp-backend.log 2>&1 &
           echo $! > ../tmp-backend.pid
@@ -61,6 +78,7 @@ jobs:
           fi
 
       - name: Wait for backend
+        if: steps.secrets.outputs.has_db == 'true'
         run: |
           set +e
           npx wait-on@7.2.0 --timeout 120000 --interval 1000 http://127.0.0.1:3000/robots.txt
@@ -77,6 +95,7 @@ jobs:
 
       - name: Run SEO structural gate
         id: seo_gate
+        if: steps.secrets.outputs.has_db == 'true'
         continue-on-error: true
         working-directory: backend
         env:
@@ -92,6 +111,7 @@ jobs:
 
       - name: Run Lighthouse CI gate
         id: lhci_gate
+        if: steps.secrets.outputs.has_db == 'true'
         continue-on-error: true
         env:
           LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
@@ -107,15 +127,26 @@ jobs:
       - name: Build SEO report
         if: always()
         run: |
-          seo_status="PASS"
-          lhci_status="PASS"
-          if [ "${{ steps.seo_gate.outputs.exit_code }}" != "0" ]; then seo_status="FAIL"; fi
-          if [ "${{ steps.lhci_gate.outputs.exit_code }}" != "0" ]; then lhci_status="FAIL"; fi
+          has_db="${{ steps.secrets.outputs.has_db }}"
+          seo_exit="${{ steps.seo_gate.outputs.exit_code }}"
+          lhci_exit="${{ steps.lhci_gate.outputs.exit_code }}"
+
+          if [ "$has_db" != "true" ]; then
+            seo_status="SKIP"
+            lhci_status="SKIP"
+          else
+            if [ "$seo_exit" = "0" ]; then seo_status="PASS"; else seo_status="FAIL"; fi
+            if [ "$lhci_exit" = "0" ]; then lhci_status="PASS"; else lhci_status="FAIL"; fi
+          fi
 
           {
             echo "## SEO Gate Report"
             echo ""
-            echo "- Structural gate (npm run seo:ci): **${seo_status}**"
+            if [ "$has_db" != "true" ]; then
+              echo "> **Note:** \`MONGO_URL\` secret not configured — SEO and LHCI checks were skipped."
+              echo ""
+            fi
+            echo "- Structural gate (\`npm run seo:ci\`): **${seo_status}**"
             echo "- Lighthouse CI: **${lhci_status}**"
             echo ""
             if [ -f lhci.log ]; then
@@ -186,7 +217,7 @@ jobs:
             }
 
       - name: Enforce SEO gates
-        if: always()
+        if: always() && steps.secrets.outputs.has_db == 'true'
         run: |
           if [ "${{ steps.seo_gate.outputs.exit_code }}" != "0" ] || [ "${{ steps.lhci_gate.outputs.exit_code }}" != "0" ]; then
             echo "SEO gate failed: seo=${{ steps.seo_gate.outputs.exit_code }}, lhci=${{ steps.lhci_gate.outputs.exit_code }}"
@@ -194,7 +225,7 @@ jobs:
           fi
 
       - name: Stop backend and print logs
-        if: always()
+        if: always() && steps.secrets.outputs.has_db == 'true'
         run: |
           if [ -f tmp-backend.pid ]; then
             kill "$(cat tmp-backend.pid)" || true
